@@ -134,12 +134,15 @@
         onValue(locationRef, (snapshot) => {
             const data = snapshot.val();
             if (data && data.lat && data.lon) {
-                if(isFirstLoad) { loadingScreen.style.display = 'none'; isFirstLoad = false; }
-                
                 motorLatLng = L.latLng(data.lat, data.lon);
                 motorMarker.setLatLng(motorLatLng);
-                
-                if(!userLatLng) map.flyTo(motorLatLng, 16, { animate: true, duration: 1.5 });
+
+                // Isang beses lang mag-zo-zoom sa motor kapag nag-load ang page
+                if(isFirstLoad) { 
+                    loadingScreen.style.display = 'none'; 
+                    map.flyTo(motorLatLng, 16, { animate: true, duration: 1.5 });
+                    isFirstLoad = false; 
+                }
 
                 uiBattery.innerText = data.battery || "-- V";
                 uiTime.innerText = data.last_update || "Just now";
@@ -186,6 +189,7 @@
                         routeWhileDragging: false,
                         addWaypoints: false,
                         show: false, // Itago ang text directions
+                        fitSelectedRoutes: false, // I-disable ang nakakainis na auto-zoom sa ruta!
                         lineOptions: { styles: [{color: '#29b6f6', opacity: 0.8, weight: 5}] }
                     }).addTo(map);
                 }
