@@ -3,92 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Motorcycle Live Tracker</title>
+    <title>B-Connect Live Tracker</title>
     
     <!-- Leaflet CSS for Maps -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet Routing Machine CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
     
     <style>
         body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            font-family: Arial, sans-serif;
-            background-color: #121212;
+            margin: 0; padding: 0; height: 100%;
+            font-family: Arial, sans-serif; background-color: #121212;
         }
-        #map {
-            height: 100vh;
-            width: 100vw;
-            z-index: 1;
-        }
-        /* Dashboard Overlay Overlay */
+        #map { height: 100vh; width: 100vw; z-index: 1; }
+        
+        /* Dashboard Overlay */
         .dashboard {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 90%;
-            max-width: 400px;
-            background: rgba(30, 30, 30, 0.9);
-            color: #fff;
-            padding: 15px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            z-index: 999;
-            backdrop-filter: blur(5px);
-            border: 1px solid #333;
+            position: absolute; bottom: 20px; left: 50%;
+            transform: translateX(-50%); width: 90%; max-width: 400px;
+            background: rgba(30, 30, 30, 0.95); color: #fff;
+            padding: 15px; border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 999;
+            backdrop-filter: blur(5px); border: 1px solid #333;
         }
-        .dashboard h3 {
-            margin: 0 0 10px 0;
-            color: #29b6f6;
-            text-align: center;
-            font-size: 18px;
-        }
-        .info-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
-        .info-label {
-            color: #aaa;
-        }
-        .info-val {
-            font-weight: bold;
-        }
+        .dashboard h3 { margin: 0 0 10px 0; color: #29b6f6; text-align: center; font-size: 18px; }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
+        .info-label { color: #aaa; }
+        .info-val { font-weight: bold; }
+        
         .status-locked { color: #ff1744; }
         .status-unlocked { color: #00e676; }
         .status-engine { color: #ffb300; }
         
+        /* Itinatago nito yung malaking text box ng direksyon sa kalsada para malinis tingnan */
+        .leaflet-routing-container { display: none !important; }
+        
         .loading-screen {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: #121212;
-            color: #00e676;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            font-size: 18px;
-            font-weight: bold;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #121212; color: #00e676; display: flex;
+            justify-content: center; align-items: center; z-index: 1000;
+            font-size: 18px; font-weight: bold;
+        }
+
+        /* Share Button Style */
+        .share-btn {
+            width: 100%; background: #00e676; color: #000;
+            padding: 10px; margin-top: 10px; border: none;
+            border-radius: 8px; font-size: 14px; font-weight: bold;
+            cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
     </style>
 </head>
 <body>
 
     <div id="loading" class="loading-screen">
-        Connecting to Tracker...
+        Kumokonekta sa Tracker...
     </div>
 
-    <!-- Map Container -->
     <div id="map"></div>
 
-    <!-- Data Overlay -->
     <div class="dashboard">
         <h3>Live Telemetry</h3>
         <div class="info-row">
             <span class="info-label">System Status:</span>
             <span class="info-val" id="ui-status">WAITING...</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Layo mo sa Motor:</span>
+            <span class="info-val" id="ui-distance" style="color:#ffb300;">Kinakalkula...</span>
         </div>
         <div class="info-row">
             <span class="info-label">Main Battery:</span>
@@ -98,76 +80,134 @@
             <span class="info-label">Last Updated:</span>
             <span class="info-val" id="ui-time">--:--:--</span>
         </div>
+        
+        <button class="share-btn" onclick="shareLocation()">📍 SHARE LIVE LOCATION</button>
     </div>
 
-    <!-- Leaflet JS -->
+    <!-- Leaflet JS & Routing Machine JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 
     <!-- Firebase v10 Modular SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
-        // Your Exact Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyD2y1CoaxbmmX_mH83GOwQ8eiQLEJ0WYdw",
             databaseURL: "https://keylesstrackerrenz-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "keylesstrackerrenz"
         };
 
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // Setup Leaflet Map (Default location Manila, will auto-pan when GPS is received)
         var map = L.map('map', { zoomControl: false }).setView([14.5995, 120.9842], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+        // Marker ng Motor (Pula)
+        var motorIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41]
+        });
+        var motorMarker = L.marker([14.5995, 120.9842], {icon: motorIcon}).addTo(map);
         
-        // Add OpenStreetMap Tiles
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap'
+        // Marker ng Viewer (Asul na bilog)
+        var userMarker = L.circleMarker([0, 0], {
+            color: '#29b6f6', fillColor: '#29b6f6', fillOpacity: 0.8, radius: 8
         }).addTo(map);
 
-        // Add Motorcycle Marker
-        var marker = L.marker([14.5995, 120.9842]).addTo(map);
         var isFirstLoad = true;
+        var routeControl = null;
+        var motorLatLng = null;
+        var userLatLng = null;
 
-        // UI Elements
         const uiStatus = document.getElementById('ui-status');
         const uiBattery = document.getElementById('ui-battery');
         const uiTime = document.getElementById('ui-time');
+        const uiDistance = document.getElementById('ui-distance');
         const loadingScreen = document.getElementById('loading');
 
-        // Listen for Real-Time Updates from ESP32
+        // 1. Kumuha ng Location mula sa Firebase (Motor)
         const locationRef = ref(db, 'location');
         onValue(locationRef, (snapshot) => {
             const data = snapshot.val();
-            
             if (data && data.lat && data.lon) {
-                // Hide Loading Screen
-                if(isFirstLoad) {
-                    loadingScreen.style.display = 'none';
-                    isFirstLoad = false;
-                }
+                if(isFirstLoad) { loadingScreen.style.display = 'none'; isFirstLoad = false; }
+                
+                motorLatLng = L.latLng(data.lat, data.lon);
+                motorMarker.setLatLng(motorLatLng);
+                
+                if(!userLatLng) map.flyTo(motorLatLng, 16, { animate: true, duration: 1.5 });
 
-                // Update Map Position
-                const latLng = new L.LatLng(data.lat, data.lon);
-                marker.setLatLng(latLng);
-                map.flyTo(latLng, 18, { animate: true, duration: 1.5 });
-
-                // Update Dashboard Text
                 uiBattery.innerText = data.battery || "-- V";
                 uiTime.innerText = data.last_update || "Just now";
 
-                // Status Styling
                 let stat = data.status || "UNKNOWN";
                 uiStatus.innerText = stat;
-                uiStatus.className = "info-val"; // Reset
+                uiStatus.className = "info-val"; 
                 if (stat.includes("LOCKED")) uiStatus.classList.add("status-locked");
                 else if (stat.includes("UNLOCKED")) uiStatus.classList.add("status-unlocked");
                 else if (stat.includes("ENGINE")) uiStatus.classList.add("status-engine");
+
+                updateRoute();
             }
         });
+
+        // 2. Kumuha ng Location ng Tumitingin (Cellphone/Viewer)
+        if ("geolocation" in navigator) {
+            navigator.geolocation.watchPosition(function(position) {
+                userLatLng = L.latLng(position.coords.latitude, position.coords.longitude);
+                userMarker.setLatLng(userLatLng);
+                updateRoute();
+            }, function(error) {
+                uiDistance.innerText = "Location access denied";
+            }, { enableHighAccuracy: true });
+        } else {
+            uiDistance.innerText = "GPS Not Supported";
+        }
+
+        // 3. I-update ang Ruta at Kilometro
+        function updateRoute() {
+            if (motorLatLng && userLatLng) {
+                // I-compute ang distance sa kilometro
+                let distanceMeters = userLatLng.distanceTo(motorLatLng);
+                let distanceKm = (distanceMeters / 1000).toFixed(2);
+                uiDistance.innerText = distanceKm + " km";
+
+                // Gumuhit ng kalsada mula user papuntang motor
+                if (routeControl) {
+                    routeControl.setWaypoints([userLatLng, motorLatLng]);
+                } else {
+                    routeControl = L.Routing.control({
+                        waypoints: [userLatLng, motorLatLng],
+                        createMarker: function() { return null; }, // Itago ang default markers ng ruta
+                        routeWhileDragging: false,
+                        addWaypoints: false,
+                        show: false, // Itago ang text directions
+                        lineOptions: { styles: [{color: '#29b6f6', opacity: 0.8, weight: 5}] }
+                    }).addTo(map);
+                }
+            }
+        }
+    </script>
+    
+    <!-- Share Button Logic -->
+    <script>
+        function shareLocation() {
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Live Motorcycle Tracker',
+                    text: 'Tingnan ang live location at ruta ng motor ko rito:',
+                    url: window.location.href
+                }).then(() => {
+                    console.log('Nai-share nang maayos!');
+                }).catch(console.error);
+            } else {
+                alert("Hindi supported ng browser mo ang Share feature. Kopyahin mo na lang ang link ng website na ito.");
+            }
+        }
     </script>
 </body>
 </html>
