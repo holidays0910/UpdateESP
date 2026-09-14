@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Motorcycle Live Tracker</title>
+    
+    <!-- Leaflet CSS for Maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+        }
+        #map {
+            height: 100vh;
+            width: 100vw;
+            z-index: 1;
+        }
+        /* Dashboard Overlay Overlay */
+        .dashboard {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 400px;
+            background: rgba(30, 30, 30, 0.9);
+            color: #fff;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            z-index: 999;
+            backdrop-filter: blur(5px);
+            border: 1px solid #333;
+        }
+        .dashboard h3 {
+            margin: 0 0 10px 0;
+            color: #29b6f6;
+            text-align: center;
+            font-size: 18px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .info-label {
+            color: #aaa;
+        }
+        .info-val {
+            font-weight: bold;
+        }
+        .status-locked { color: #ff1744; }
+        .status-unlocked { color: #00e676; }
+        .status-engine { color: #ffb300; }
+        
+        .loading-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #121212;
+            color: #00e676;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            font-size: 18px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading" class="loading-screen">
+        Connecting to Tracker...
+    </div>
+
+    <!-- Map Container -->
+    <div id="map"></div>
+
+    <!-- Data Overlay -->
+    <div class="dashboard">
+        <h3>Live Telemetry</h3>
+        <div class="info-row">
+            <span class="info-label">System Status:</span>
+            <span class="info-val" id="ui-status">WAITING...</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Main Battery:</span>
+            <span class="info-val" id="ui-battery">-- V</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Last Updated:</span>
+            <span class="info-val" id="ui-time">--:--:--</span>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Firebase v10 Modular SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+
+        // Your Exact Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyD2y1CoaxbmmX_mH83GOwQ8eiQLEJ0WYdw",
+            databaseURL: "https://keylesstrackerrenz-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "keylesstrackerrenz"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Setup Leaflet Map (Default location Manila, will auto-pan when GPS is received)
+        var map = L.map('map', { zoomControl: false }).setView([14.5995, 120.9842], 16);
+        
+        // Add OpenStreetMap Tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // Add Motorcycle Marker
+        var marker = L.marker([14.5995, 120.9842]).addTo(map);
+        var isFirstLoad = true;
+
+        // UI Elements
+        const uiStatus = document.getElementById('ui-status');
+        const uiBattery = document.getElementById('ui-battery');
+        const uiTime = document.getElementById('ui-time');
+        const loadingScreen = document.getElementById('loading');
+
+        // Listen for Real-Time Updates from ESP32
+        const locationRef = ref(db, 'location');
+        onValue(locationRef, (snapshot) => {
+            const data = snapshot.val();
+            
+            if (data && data.lat && data.lon) {
+                // Hide Loading Screen
+                if(isFirstLoad) {
+                    loadingScreen.style.display = 'none';
+                    isFirstLoad = false;
+                }
+
+                // Update Map Position
+                const latLng = new L.LatLng(data.lat, data.lon);
+                marker.setLatLng(latLng);
+                map.flyTo(latLng, 18, { animate: true, duration: 1.5 });
+
+                // Update Dashboard Text
+                uiBattery.innerText = data.battery || "-- V";
+                uiTime.innerText = data.last_update || "Just now";
+
+                // Status Styling
+                let stat = data.status || "UNKNOWN";
+                uiStatus.innerText = stat;
+                uiStatus.className = "info-val"; // Reset
+                if (stat.includes("LOCKED")) uiStatus.classList.add("status-locked");
+                else if (stat.includes("UNLOCKED")) uiStatus.classList.add("status-unlocked");
+                else if (stat.includes("ENGINE")) uiStatus.classList.add("status-engine");
+            }
+        });
+    </script>
+</body>
+</html>
