@@ -11,23 +11,22 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
     
     <style>
-        /* V23.1 SPLIT-SCREEN LAYOUT FIX */
         body, html {
             margin: 0; padding: 0; height: 100%;
             font-family: Arial, sans-serif; background-color: #121212;
-            display: flex; flex-direction: column; /* Ginawang split-screen pataas-pababa */
+            display: flex; flex-direction: column;
         }
         
         #map { 
-            flex: 1; /* Kukunin ang natitirang space sa itaas (nasa 40-50%) */
+            flex: 1; 
             width: 100vw; 
             z-index: 1; 
             min-height: 40vh;
         }
         
         .dashboard {
-            height: 55vh; /* Ang ibabang 55% ay para sa dashboard */
-            overflow-y: auto; /* Scrollable pataas-pababa */
+            height: 55vh; 
+            overflow-y: auto; 
             width: 100%;
             background: #1a1a1a; 
             color: #fff;
@@ -50,7 +49,6 @@
         .status-unlocked { color: #00e676; }
         .status-engine { color: #ffb300; }
         
-        /* Itinatago nito yung malaking text box ng direksyon sa kalsada para malinis tingnan */
         .leaflet-routing-container { display: none !important; }
         
         .loading-screen {
@@ -60,7 +58,6 @@
             font-size: 18px; font-weight: bold;
         }
 
-        /* Share Button Style */
         .share-btn {
             width: 100%; background: #00e676; color: #000;
             padding: 10px; margin-top: 10px; border: none;
@@ -68,7 +65,6 @@
             cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
 
-        /* CLOUD CONTROL STYLES */
         #terminalLog {
             width: 100%; height: 120px; background: #000; color: #00ff00; 
             border: 1px solid #333; margin-top: 10px; padding: 8px; 
@@ -84,13 +80,13 @@
         Kumokonekta sa Tracker...
     </div>
 
-    <!-- MAP SECTION (NASA ITAAS) -->
+    <!-- MAP SECTION -->
     <div id="map"></div>
 
-    <!-- DASHBOARD SECTION (NASA IBABA, SCROLLABLE) -->
+    <!-- DASHBOARD SECTION -->
     <div class="dashboard">
         <div class="dashboard-content">
-            <h3>Live Telemetry</h3>
+            <h3>ONLINE TELEMETRY</h3>
             <div class="info-row">
                 <span class="info-label">System Status:</span>
                 <span class="info-val" id="ui-status">WAITING...</span>
@@ -104,17 +100,15 @@
                 <span class="info-val" id="ui-battery">-- V</span>
             </div>
             <div class="info-row">
-                <span class="info-label">Last Updated:</span>
-                <span class="info-val" id="ui-time">--:--:--</span>
+                <span class="info-label">Last GPS Fetch:</span>
+                <span class="info-val" id="ui-time">--/--/---- --:--:--</span>
             </div>
             
             <button class="share-btn" onclick="shareLocation()">📍 SHARE LIVE LOCATION</button>
 
-            <!-- ============================================================== -->
-            <!-- V23.1 CLOUD CONTROL SECTION -->
-            <!-- ============================================================== -->
+            <!-- ONLINE REMOTE CONTROL SECTION -->
             <div class="cloud-section">
-                <h3 style="color:#ab47bc; font-size: 16px;">Cloud Remote Control</h3>
+                <h3 style="color:#ab47bc; font-size: 16px;">ONLINE REMOTE CONTROL</h3>
                 
                 <button id="authBtn" class="share-btn" style="background:#ab47bc; color:#fff;" onclick="toggleAuth()">🔐 LOGIN</button>
                 
@@ -124,6 +118,7 @@
                     <button class="share-btn" style="background:#ff1744; color:#fff; margin-top:5px;" onclick="sendCommand('lock')">🔒 LOCK / SHUTDOWN</button>
                 </div>
 
+                <b style="color:#00e676; font-size:12px; display:block; margin-top:10px;">ONLINE CLOUD TERMINAL</b>
                 <div id="terminalLog">>> Standby. Waiting for commands...</div>
             </div>
         </div>
@@ -150,7 +145,6 @@
         var map = L.map('map', { zoomControl: false }).setView([14.5995, 120.9842], 16);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
-        // Marker ng Motor (Pula)
         var motorIcon = L.icon({
             iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
             shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
@@ -158,7 +152,6 @@
         });
         var motorMarker = L.marker([14.5995, 120.9842], {icon: motorIcon}).addTo(map);
         
-        // Marker ng Viewer (Asul na bilog)
         var userMarker = L.circleMarker([0, 0], {
             color: '#29b6f6', fillColor: '#29b6f6', fillOpacity: 0.8, radius: 8
         }).addTo(map);
@@ -174,6 +167,18 @@
         const uiDistance = document.getElementById('ui-distance');
         const loadingScreen = document.getElementById('loading');
 
+        // Helper para sa kumpletong Date at Time
+        function getFormattedDateTime(timeStr) {
+            let now = new Date();
+            let dateStr = String(now.getMonth() + 1).padStart(2, '0') + '/' + 
+                          String(now.getDate()).padStart(2, '0') + '/' + 
+                          now.getFullYear();
+            if (timeStr && timeStr.length > 0) {
+                return dateStr + " " + timeStr.replace(/[\[\]]/g, '');
+            }
+            return dateStr + " " + now.toLocaleTimeString();
+        }
+
         // 1. Kumuha ng Location mula sa Firebase (Motor)
         const locationRef = ref(db, 'location');
         onValue(locationRef, (snapshot) => {
@@ -182,17 +187,17 @@
                 motorLatLng = L.latLng(data.lat, data.lon);
                 motorMarker.setLatLng(motorLatLng);
 
-                // Isang beses lang mag-zo-zoom sa motor kapag nag-load ang page
                 if(isFirstLoad) { 
                     loadingScreen.style.display = 'none'; 
                     map.flyTo(motorLatLng, 16, { animate: true, duration: 1.5 });
-                    // I-trigger ang resize ng mapa pagkatapos itago ang loading screen
                     setTimeout(() => { map.invalidateSize(); }, 500);
                     isFirstLoad = false; 
                 }
 
                 uiBattery.innerText = data.battery || "-- V";
-                uiTime.innerText = data.last_update || "Just now";
+                
+                // Pinagsama ang Date at Time para sa huling GPS Fetch
+                uiTime.innerText = getFormattedDateTime(data.last_update);
 
                 let stat = data.status || "UNKNOWN";
                 uiStatus.innerText = stat;
@@ -205,7 +210,7 @@
             }
         });
 
-        // 2. Kumuha ng Location ng Tumitingin (Cellphone/Viewer)
+        // 2. Kumuha ng Location ng Tumitingin
         if ("geolocation" in navigator) {
             navigator.geolocation.watchPosition(function(position) {
                 userLatLng = L.latLng(position.coords.latitude, position.coords.longitude);
@@ -241,9 +246,7 @@
             }
         }
 
-        // ==============================================================
-        // V23.1 CLOUD COMMAND & TERMINAL LISTENER LOGIC
-        // ==============================================================
+        // ONLINE COMMAND & TERMINAL LISTENER
         const logRef = ref(db, 'cloud_log');
         let lastLogTs = 0;
         
@@ -253,7 +256,7 @@
                 lastLogTs = data.ts;
                 const terminal = document.getElementById('terminalLog');
                 terminal.innerHTML += "\n" + data.log;
-                terminal.scrollTop = terminal.scrollHeight; // Auto-scroll down
+                terminal.scrollTop = terminal.scrollHeight;
 
                 if (window.isWaitingForReply) {
                     window.isWaitingForReply = false;
@@ -276,7 +279,6 @@
         });
     </script>
     
-    <!-- Share Button & Cloud Sender Logic -->
     <script>
         function shareLocation() {
             if (navigator.share) {
@@ -292,9 +294,6 @@
             }
         }
 
-        // ==============================================================
-        // V23.1 LOGIN & SENDER LOGIC (WITH SMART TIMEOUT CATCH)
-        // ==============================================================
         window.sessionPin = "";
         window.isLoggedIn = false;
         window.commandTimeout = null;
@@ -314,12 +313,12 @@
                 const btn = document.getElementById("authBtn");
                 btn.style.background = "#ab47bc";
                 btn.innerHTML = "🔐 LOGIN";
-                appendLocalLog(">> CLOUD SESSION: User logged out successfully.");
+                appendLocalLog(">> ONLINE SESSION: User logged out successfully.");
             } else {
                 let pin = prompt("Enter Direct PIN or Master Key:");
                 if (pin && pin.trim().length > 0) {
                     window.sessionPin = pin.trim();
-                    appendLocalLog(">> CLOUD SESSION: Authenticating PIN via Firebase...");
+                    appendLocalLog(">> ONLINE SESSION: Authenticating PIN via Firebase...");
                     sendCommand("login_check");
                 }
             }
@@ -349,7 +348,6 @@
                 
                 if (window.commandTimeout) clearTimeout(window.commandTimeout);
                 
-                // SMART TIMEOUT (15-SECONDS)
                 window.commandTimeout = setTimeout(() => {
                     if (window.isWaitingForReply) {
                         window.isWaitingForReply = false;
