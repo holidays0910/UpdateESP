@@ -11,26 +11,40 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
     
     <style>
+        /* V23.1 SPLIT-SCREEN LAYOUT FIX */
         body, html {
             margin: 0; padding: 0; height: 100%;
             font-family: Arial, sans-serif; background-color: #121212;
+            display: flex; flex-direction: column; /* Ginawang split-screen pataas-pababa */
         }
-        #map { height: 100vh; width: 100vw; z-index: 1; }
         
-        /* Dashboard Overlay */
-        .dashboard {
-            position: absolute; bottom: 20px; left: 50%;
-            transform: translateX(-50%); width: 90%; max-width: 400px;
-            background: rgba(30, 30, 30, 0.95); color: #fff;
-            padding: 15px; border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 999;
-            backdrop-filter: blur(5px); border: 1px solid #333;
-            max-height: 85vh; overflow-y: auto; /* Para hindi lumagpas sa screen kung maliit ang CP */
+        #map { 
+            flex: 1; /* Kukunin ang natitirang space sa itaas (nasa 40-50%) */
+            width: 100vw; 
+            z-index: 1; 
+            min-height: 40vh;
         }
-        .dashboard h3 { margin: 0 0 10px 0; color: #29b6f6; text-align: center; font-size: 18px; }
+        
+        .dashboard {
+            height: 55vh; /* Ang ibabang 55% ay para sa dashboard */
+            overflow-y: auto; /* Scrollable pataas-pababa */
+            width: 100%;
+            background: #1a1a1a; 
+            color: #fff;
+            padding: 15px; 
+            box-sizing: border-box;
+            border-top: 2px solid #333;
+        }
+
+        .dashboard-content {
+            max-width: 500px; 
+            margin: 0 auto;
+        }
+
+        h3 { margin: 0 0 10px 0; color: #29b6f6; text-align: center; font-size: 18px; }
         .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
         .info-label { color: #aaa; }
-        .info-val { font-weight: bold; }
+        .info-val { font-weight: bold; text-align: right; }
         
         .status-locked { color: #ff1744; }
         .status-unlocked { color: #00e676; }
@@ -54,7 +68,7 @@
             cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
 
-        /* IDINAGDAG PARA SA V23.1 CLOUD CONTROL */
+        /* CLOUD CONTROL STYLES */
         #terminalLog {
             width: 100%; height: 120px; background: #000; color: #00ff00; 
             border: 1px solid #333; margin-top: 10px; padding: 8px; 
@@ -70,44 +84,48 @@
         Kumokonekta sa Tracker...
     </div>
 
+    <!-- MAP SECTION (NASA ITAAS) -->
     <div id="map"></div>
 
+    <!-- DASHBOARD SECTION (NASA IBABA, SCROLLABLE) -->
     <div class="dashboard">
-        <h3>Live Telemetry</h3>
-        <div class="info-row">
-            <span class="info-label">System Status:</span>
-            <span class="info-val" id="ui-status">WAITING...</span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">Layo mo sa Motor:</span>
-            <span class="info-val" id="ui-distance" style="color:#ffb300;">Kinakalkula...</span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">Main Battery:</span>
-            <span class="info-val" id="ui-battery">-- V</span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">Last Updated:</span>
-            <span class="info-val" id="ui-time">--:--:--</span>
-        </div>
-        
-        <button class="share-btn" onclick="shareLocation()">📍 SHARE LIVE LOCATION</button>
-
-        <!-- ============================================================== -->
-        <!-- IDINAGDAG NA V23.1 CLOUD CONTROL SECTION -->
-        <!-- ============================================================== -->
-        <div class="cloud-section">
-            <h3 style="color:#ab47bc; font-size: 16px;">Cloud Remote Control</h3>
-            
-            <button id="authBtn" class="share-btn" style="background:#ab47bc; color:#fff;" onclick="toggleAuth()">🔐 LOGIN</button>
-            
-            <div id="controlButtons" style="display: none;">
-                <button class="share-btn" style="background:#00e676; color:#000; margin-top:5px;" onclick="sendCommand('unlock')">🔓 UNLOCK SYSTEM</button>
-                <button class="share-btn" style="background:#29b6f6; color:#000; margin-top:5px;" onclick="sendCommand('start')">⚡ START ENGINE</button>
-                <button class="share-btn" style="background:#ff1744; color:#fff; margin-top:5px;" onclick="sendCommand('lock')">🔒 LOCK / SHUTDOWN</button>
+        <div class="dashboard-content">
+            <h3>Live Telemetry</h3>
+            <div class="info-row">
+                <span class="info-label">System Status:</span>
+                <span class="info-val" id="ui-status">WAITING...</span>
             </div>
+            <div class="info-row">
+                <span class="info-label">Layo mo sa Motor:</span>
+                <span class="info-val" id="ui-distance" style="color:#ffb300;">Kinakalkula...</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Main Battery:</span>
+                <span class="info-val" id="ui-battery">-- V</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Last Updated:</span>
+                <span class="info-val" id="ui-time">--:--:--</span>
+            </div>
+            
+            <button class="share-btn" onclick="shareLocation()">📍 SHARE LIVE LOCATION</button>
 
-            <div id="terminalLog">>> Standby. Waiting for commands...</div>
+            <!-- ============================================================== -->
+            <!-- V23.1 CLOUD CONTROL SECTION -->
+            <!-- ============================================================== -->
+            <div class="cloud-section">
+                <h3 style="color:#ab47bc; font-size: 16px;">Cloud Remote Control</h3>
+                
+                <button id="authBtn" class="share-btn" style="background:#ab47bc; color:#fff;" onclick="toggleAuth()">🔐 LOGIN</button>
+                
+                <div id="controlButtons" style="display: none;">
+                    <button class="share-btn" style="background:#00e676; color:#000; margin-top:5px;" onclick="sendCommand('unlock')">🔓 UNLOCK SYSTEM</button>
+                    <button class="share-btn" style="background:#29b6f6; color:#000; margin-top:5px;" onclick="sendCommand('start')">⚡ START ENGINE</button>
+                    <button class="share-btn" style="background:#ff1744; color:#fff; margin-top:5px;" onclick="sendCommand('lock')">🔒 LOCK / SHUTDOWN</button>
+                </div>
+
+                <div id="terminalLog">>> Standby. Waiting for commands...</div>
+            </div>
         </div>
     </div>
 
@@ -168,6 +186,8 @@
                 if(isFirstLoad) { 
                     loadingScreen.style.display = 'none'; 
                     map.flyTo(motorLatLng, 16, { animate: true, duration: 1.5 });
+                    // I-trigger ang resize ng mapa pagkatapos itago ang loading screen
+                    setTimeout(() => { map.invalidateSize(); }, 500);
                     isFirstLoad = false; 
                 }
 
@@ -201,22 +221,20 @@
         // 3. I-update ang Ruta at Kilometro
         function updateRoute() {
             if (motorLatLng && userLatLng) {
-                // I-compute ang distance sa kilometro
                 let distanceMeters = userLatLng.distanceTo(motorLatLng);
                 let distanceKm = (distanceMeters / 1000).toFixed(2);
                 uiDistance.innerText = distanceKm + " km";
 
-                // Gumuhit ng kalsada mula user papuntang motor
                 if (routeControl) {
                     routeControl.setWaypoints([userLatLng, motorLatLng]);
                 } else {
                     routeControl = L.Routing.control({
                         waypoints: [userLatLng, motorLatLng],
-                        createMarker: function() { return null; }, // Itago ang default markers ng ruta
+                        createMarker: function() { return null; }, 
                         routeWhileDragging: false,
                         addWaypoints: false,
-                        show: false, // Itago ang text directions
-                        fitSelectedRoutes: false, // I-disable ang nakakainis na auto-zoom sa ruta!
+                        show: false, 
+                        fitSelectedRoutes: false, 
                         lineOptions: { styles: [{color: '#29b6f6', opacity: 0.8, weight: 5}] }
                     }).addTo(map);
                 }
@@ -237,13 +255,11 @@
                 terminal.innerHTML += "\n" + data.log;
                 terminal.scrollTop = terminal.scrollHeight; // Auto-scroll down
 
-                // Pag nakatanggap na ng sagot si ESP32, patayin ang 15s timeout
                 if (window.isWaitingForReply) {
                     window.isWaitingForReply = false;
                     clearTimeout(window.commandTimeout);
                 }
 
-                // Authentication Magic
                 if (data.log.includes("LOGIN SUCCESS")) {
                     window.isLoggedIn = true;
                     document.getElementById("controlButtons").style.display = "block";
@@ -292,7 +308,6 @@
 
         function toggleAuth() {
             if (window.isLoggedIn) {
-                // LOGOUT
                 window.isLoggedIn = false;
                 window.sessionPin = "";
                 document.getElementById("controlButtons").style.display = "none";
@@ -301,7 +316,6 @@
                 btn.innerHTML = "🔐 LOGIN";
                 appendLocalLog(">> CLOUD SESSION: User logged out successfully.");
             } else {
-                // LOGIN
                 let pin = prompt("Enter Direct PIN or Master Key:");
                 if (pin && pin.trim().length > 0) {
                     window.sessionPin = pin.trim();
@@ -323,7 +337,6 @@
                 ts: Date.now()
             };
 
-            // Ipadala ang command sa Firebase
             fetch("https://keylesstrackerrenz-default-rtdb.asia-southeast1.firebasedatabase.app/cloud_cmd.json", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
@@ -343,7 +356,7 @@
                         appendLocalLog("\n>> ⚠️ CLOUD TIMEOUT: Walang sagot mula sa motor.");
                         appendLocalLog(">> 💡 TIP: Kung naka-ON ang Battery Saver, maaaring nakatulog na ang Wi-Fi. Mag-text sa SIM800L (ex. PING) o gumamit ng RF remote para magising ang system.\n");
                         
-                        if(cmdAction === "login_check") window.sessionPin = ""; // Reset kung fail ang login
+                        if(cmdAction === "login_check") window.sessionPin = ""; 
                     }
                 }, 15000); 
             }).catch(err => {
