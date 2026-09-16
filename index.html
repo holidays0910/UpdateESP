@@ -153,14 +153,23 @@
         const uiDistance = document.getElementById('ui-distance');
         const loadingScreen = document.getElementById('loading');
 
+        // SMART DATE CHECK: Hindi buburahin ang luma, mag-a-adapt lang sa v23.8
         function getFormattedDateTime(timeStr) {
+            if (timeStr && timeStr.length > 0) {
+                if (timeStr.includes("/")) {
+                    return timeStr.replace(/[\[\]]/g, '');
+                } else {
+                    let now = new Date();
+                    let dateStr = String(now.getMonth() + 1).padStart(2, '0') + '/' + 
+                                  String(now.getDate()).padStart(2, '0') + '/' + 
+                                  now.getFullYear();
+                    return dateStr + " " + timeStr.replace(/[\[\]]/g, '');
+                }
+            }
             let now = new Date();
             let dateStr = String(now.getMonth() + 1).padStart(2, '0') + '/' + 
                           String(now.getDate()).padStart(2, '0') + '/' + 
                           now.getFullYear();
-            if (timeStr && timeStr.length > 0) {
-                return dateStr + " " + timeStr.replace(/[\[\]]/g, '');
-            }
             return dateStr + " " + now.toLocaleTimeString();
         }
 
@@ -219,7 +228,7 @@
             if (motorLatLng && userLatLng && motorLatLng.lat != 0.0) {
                 let distanceMeters = userLatLng.distanceTo(motorLatLng);
                 
-                // V23.8 LOGIC: DYNAMIC DISTANCE DISPLAY (METERS OR KM)
+                // METERS TO KM CONVERSION LOGIC
                 if (distanceMeters < 1000) {
                     uiDistance.innerText = Math.round(distanceMeters) + " meters";
                 } else {
