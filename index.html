@@ -218,8 +218,14 @@
         function updateRoute() {
             if (motorLatLng && userLatLng && motorLatLng.lat != 0.0) {
                 let distanceMeters = userLatLng.distanceTo(motorLatLng);
-                let distanceKm = (distanceMeters / 1000).toFixed(2);
-                uiDistance.innerText = distanceKm + " km";
+                
+                // V23.8 LOGIC: DYNAMIC DISTANCE DISPLAY (METERS OR KM)
+                if (distanceMeters < 1000) {
+                    uiDistance.innerText = Math.round(distanceMeters) + " meters";
+                } else {
+                    let distanceKm = (distanceMeters / 1000).toFixed(2);
+                    uiDistance.innerText = distanceKm + " km";
+                }
 
                 if (routeControl) {
                     routeControl.setWaypoints([userLatLng, motorLatLng]);
