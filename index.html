@@ -5,9 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>B-Connect Live Tracker</title>
     
-    <!-- Leaflet CSS for Maps -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- Leaflet Routing Machine CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
     
     <style>
@@ -17,37 +15,25 @@
             display: flex; flex-direction: column;
         }
         
-        #map { 
-            flex: 1; 
-            width: 100vw; 
-            z-index: 1; 
-            min-height: 40vh;
-        }
+        #map { flex: 1; width: 100vw; z-index: 1; min-height: 40vh; }
         
         .dashboard {
-            height: 55vh; 
-            overflow-y: auto; 
-            width: 100%;
-            background: #1a1a1a; 
-            color: #fff;
-            padding: 15px; 
-            box-sizing: border-box;
+            height: 55vh; overflow-y: auto; width: 100%;
+            background: #1a1a1a; color: #fff;
+            padding: 15px; box-sizing: border-box;
             border-top: 2px solid #333;
         }
 
-        .dashboard-content {
-            max-width: 500px; 
-            margin: 0 auto;
-        }
-
+        .dashboard-content { max-width: 500px; margin: 0 auto; }
         h3 { margin: 0 0 10px 0; color: #29b6f6; text-align: center; font-size: 18px; }
         .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
         .info-label { color: #aaa; }
         .info-val { font-weight: bold; text-align: right; }
         
-        .status-locked { color: #ff1744; }
-        .status-unlocked { color: #00e676; }
-        .status-engine { color: #ffb300; }
+        /* V23.7 CSS COLOR FIX */
+        .status-locked { color: #ff1744 !important; }
+        .status-unlocked { color: #00e676 !important; }
+        .status-engine { color: #ffb300 !important; }
         
         .leaflet-routing-container { display: none !important; }
         
@@ -167,7 +153,6 @@
         const uiDistance = document.getElementById('ui-distance');
         const loadingScreen = document.getElementById('loading');
 
-        // Helper para sa kumpletong Date at Time
         function getFormattedDateTime(timeStr) {
             let now = new Date();
             let dateStr = String(now.getMonth() + 1).padStart(2, '0') + '/' + 
@@ -179,13 +164,17 @@
             return dateStr + " " + now.toLocaleTimeString();
         }
 
-        // 1. Kumuha ng Location mula sa Firebase (Motor)
+        // Kumuha ng Location at Status mula sa Firebase
         const locationRef = ref(db, 'location');
         onValue(locationRef, (snapshot) => {
             const data = snapshot.val();
             if (data && data.lat && data.lon) {
                 motorLatLng = L.latLng(data.lat, data.lon);
-                motorMarker.setLatLng(motorLatLng);
+                
+                // Kapag 0.0 ang nakuha, ibig sabihin walang GPS, wag i-move ang marker sa gitna ng dagat
+                if(data.lat != 0.0 && data.lon != 0.0) {
+                    motorMarker.setLatLng(motorLatLng);
+                }
 
                 if(isFirstLoad) { 
                     loadingScreen.style.display = 'none'; 
@@ -195,22 +184,25 @@
                 }
 
                 uiBattery.innerText = data.battery || "-- V";
-                
-                // Pinagsama ang Date at Time para sa huling GPS Fetch
                 uiTime.innerText = getFormattedDateTime(data.last_update);
 
+                // V23.7 EXACT CSS STATUS MATCH FIX
                 let stat = data.status || "UNKNOWN";
                 uiStatus.innerText = stat;
-                uiStatus.className = "info-val"; 
-                if (stat.includes("LOCKED")) uiStatus.classList.add("status-locked");
-                else if (stat.includes("UNLOCKED")) uiStatus.classList.add("status-unlocked");
-                else if (stat.includes("ENGINE")) uiStatus.classList.add("status-engine");
+                uiStatus.className = "info-val"; // Reset class
+
+                if (stat === "LOCKED") {
+                    uiStatus.classList.add("status-locked");
+                } else if (stat === "UNLOCKED") {
+                    uiStatus.classList.add("status-unlocked");
+                } else if (stat === "ENGINE RUNNING") {
+                    uiStatus.classList.add("status-engine");
+                }
 
                 updateRoute();
             }
         });
 
-        // 2. Kumuha ng Location ng Tumitingin
         if ("geolocation" in navigator) {
             navigator.geolocation.watchPosition(function(position) {
                 userLatLng = L.latLng(position.coords.latitude, position.coords.longitude);
@@ -223,9 +215,8 @@
             uiDistance.innerText = "GPS Not Supported";
         }
 
-        // 3. I-update ang Ruta at Kilometro
         function updateRoute() {
-            if (motorLatLng && userLatLng) {
+            if (motorLatLng && userLatLng && motorLatLng.lat != 0.0) {
                 let distanceMeters = userLatLng.distanceTo(motorLatLng);
                 let distanceKm = (distanceMeters / 1000).toFixed(2);
                 uiDistance.innerText = distanceKm + " km";
