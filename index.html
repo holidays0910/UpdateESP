@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>B-Connect Live Tracker</title>
     
+    <!-- TUTORIAL: Ito ang mga external libraries para sa Mapa (Leaflet JS). Wag buburahin para gumana ang GPS Maps -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
     
@@ -30,7 +31,7 @@
         .info-label { color: #aaa; }
         .info-val { font-weight: bold; text-align: right; }
         
-        /* V23.7 CSS COLOR FIX */
+        /* DEVELOPER NOTE: CSS na ginagamit para umiba-iba ang kulay base sa eksaktong status ng motor */
         .status-locked { color: #ff1744 !important; }
         .status-unlocked { color: #00e676 !important; }
         .status-engine { color: #ffb300 !important; }
@@ -119,6 +120,11 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
+        /*
+         * TUTORIAL: FIREBASE CONFIGURATION
+         * Dito mo papalitan ang API credentials kung gagawa ka ng bagong Firebase project.
+         * Siguraduhing tama ang apiKey at databaseURL.
+         */
         const firebaseConfig = {
             apiKey: "AIzaSyD2y1CoaxbmmX_mH83GOwQ8eiQLEJ0WYdw",
             databaseURL: "https://keylesstrackerrenz-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -128,6 +134,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
+        // INITIALIZE MAP (Leaflet.js)
         var map = L.map('map', { zoomControl: false }).setView([14.5995, 120.9842], 16);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
@@ -153,12 +160,23 @@
         const uiDistance = document.getElementById('ui-distance');
         const loadingScreen = document.getElementById('loading');
 
-        // SMART DATE CHECK: Hindi buburahin ang luma, mag-a-adapt lang sa v23.8
+        /*
+         * DEVELOPER NOTE: TIME FORMATTER FIX
+         * Inaayos nito kung paano ipapakita ang Date at Time mula sa ESP32.
+         * Nilagyan ng blocker para hindi idikit ang date ng browser kung "Waiting for GPS" ang status ng motor.
+         */
         function getFormattedDateTime(timeStr) {
             if (timeStr && timeStr.length > 0) {
+                // Kapag wala pang GPS Fix ang motor, iwasan magpakita ng pekeng petsa.
+                if (timeStr.includes("Waiting") || timeStr.includes("No GPS")) {
+                    return timeStr;
+                }
+                
+                // Kapag buo na ang petsa (v23.8 NVS Firmware), tanggalin lang ang brackets
                 if (timeStr.includes("/")) {
                     return timeStr.replace(/[\[\]]/g, '');
                 } else {
+                    // Fallback kapag format ay "Time Only". Kukunin ang date mula sa cellphone
                     let now = new Date();
                     let dateStr = String(now.getMonth() + 1).padStart(2, '0') + '/' + 
                                   String(now.getDate()).padStart(2, '0') + '/' + 
@@ -166,6 +184,7 @@
                     return dateStr + " " + timeStr.replace(/[\[\]]/g, '');
                 }
             }
+            // Fallback kapag walang ipinadala ang ESP32
             let now = new Date();
             let dateStr = String(now.getMonth() + 1).padStart(2, '0') + '/' + 
                           String(now.getDate()).padStart(2, '0') + '/' + 
@@ -173,7 +192,7 @@
             return dateStr + " " + now.toLocaleTimeString();
         }
 
-        // Kumuha ng Location at Status mula sa Firebase
+        // TUTORIAL: Ito ang kumukuha ng Live Data mula sa Realtime Database ng Firebase ("location" node)
         const locationRef = ref(db, 'location');
         onValue(locationRef, (snapshot) => {
             const data = snapshot.val();
@@ -195,7 +214,7 @@
                 uiBattery.innerText = data.battery || "-- V";
                 uiTime.innerText = getFormattedDateTime(data.last_update);
 
-                // V23.7 EXACT CSS STATUS MATCH FIX
+                // CSS STATUS MATCH FIX: Iniiwasang basahin ang "LOCKED" sa loob ng salitang "UNLOCKED"
                 let stat = data.status || "UNKNOWN";
                 uiStatus.innerText = stat;
                 uiStatus.className = "info-val"; // Reset class
@@ -212,6 +231,7 @@
             }
         });
 
+        // TUTORIAL: Kumukuha ng live location ng cellphone mo para kalkulahin ang distansya papunta sa motor
         if ("geolocation" in navigator) {
             navigator.geolocation.watchPosition(function(position) {
                 userLatLng = L.latLng(position.coords.latitude, position.coords.longitude);
@@ -224,11 +244,14 @@
             uiDistance.innerText = "GPS Not Supported";
         }
 
+        /*
+         * DEVELOPER NOTE: DYNAMIC DISTANCE CALCULATION
+         * Nagko-convert mula Meters papuntang Kilometers kapag umabot ng 1000m ang layo.
+         */
         function updateRoute() {
             if (motorLatLng && userLatLng && motorLatLng.lat != 0.0) {
                 let distanceMeters = userLatLng.distanceTo(motorLatLng);
                 
-                // METERS TO KM CONVERSION LOGIC
                 if (distanceMeters < 1000) {
                     uiDistance.innerText = Math.round(distanceMeters) + " meters";
                 } else {
@@ -252,7 +275,7 @@
             }
         }
 
-        // ONLINE COMMAND & TERMINAL LISTENER
+        // TUTORIAL: Ito ang taga-basa ng Cloud Terminal Replies ng ESP32 mula sa "cloud_log" node
         const logRef = ref(db, 'cloud_log');
         let lastLogTs = 0;
         
@@ -286,6 +309,7 @@
     </script>
     
     <script>
+        // TUTORIAL: Native OS share location API (gumagana sa mobile browsers)
         function shareLocation() {
             if (navigator.share) {
                 navigator.share({
@@ -311,6 +335,7 @@
             term.scrollTop = term.scrollHeight;
         }
 
+        // TUTORIAL: Log In Authentication
         function toggleAuth() {
             if (window.isLoggedIn) {
                 window.isLoggedIn = false;
@@ -330,6 +355,11 @@
             }
         }
 
+        /*
+         * DEVELOPER NOTE: SEND CLOUD COMMAND
+         * Nagpapadala ito ng command papunta sa "cloud_cmd" node ng Firebase kasama ang timestamp.
+         * Nilagyan ng 15-second timeout bago mag-alert na disconnected ang motor.
+         */
         function sendCommand(cmdAction) {
             if (cmdAction !== "login_check" && !window.isLoggedIn) {
                 alert("Mag-login muna para maka-access!");
@@ -342,6 +372,7 @@
                 ts: Date.now()
             };
 
+            // TUTORIAL: Kung mag-iiba ka ng Firebase URL, palitan din ang link sa fetch command na ito
             fetch("https://keylesstrackerrenz-default-rtdb.asia-southeast1.firebasedatabase.app/cloud_cmd.json", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
@@ -354,6 +385,7 @@
                 
                 if (window.commandTimeout) clearTimeout(window.commandTimeout);
                 
+                // Kapag walang nabasang "cloud_log" mula sa motor sa loob ng 15 segundo:
                 window.commandTimeout = setTimeout(() => {
                     if (window.isWaitingForReply) {
                         window.isWaitingForReply = false;
