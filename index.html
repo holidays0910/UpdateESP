@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
     
     <style>
+        /* DEVELOPER NOTE: Basic styling para sumakto ang UI mapa sa cellphone at desktop. Naka-Dark Mode. */
         body, html {
             margin: 0; padding: 0; height: 100%;
             font-family: Arial, sans-serif; background-color: #121212;
@@ -86,6 +87,11 @@
                 <span class="info-label">Main Battery:</span>
                 <span class="info-val" id="ui-battery">-- V</span>
             </div>
+            <!-- V24.0: SYSTEM UPTIME DISPLAY -->
+            <div class="info-row">
+                <span class="info-label">System Uptime:</span>
+                <span class="info-val" id="ui-uptime" style="color:#ab47bc;">--d --h --m</span>
+            </div>
             <div class="info-row">
                 <span class="info-label">Last GPS Fetch:</span>
                 <span class="info-val" id="ui-time">--/--/---- --:--:--</span>
@@ -100,6 +106,7 @@
                 <button id="authBtn" class="share-btn" style="background:#ab47bc; color:#fff;" onclick="toggleAuth()">🔐 LOGIN</button>
                 
                 <div id="controlButtons" style="display: none;">
+                    <!-- V24.0: Kung nag-aalarm ang motor at umi-ring ang phone mo, ang pagpindot sa LOCK dito ay awtomatikong mag-cacancel ng tawag -->
                     <button class="share-btn" style="background:#00e676; color:#000; margin-top:5px;" onclick="sendCommand('unlock')">🔓 UNLOCK SYSTEM</button>
                     <button class="share-btn" style="background:#29b6f6; color:#000; margin-top:5px;" onclick="sendCommand('start')">⚡ START ENGINE</button>
                     <button class="share-btn" style="background:#ff1744; color:#fff; margin-top:5px;" onclick="sendCommand('lock')">🔒 LOCK / SHUTDOWN</button>
@@ -123,7 +130,7 @@
         /*
          * TUTORIAL: FIREBASE CONFIGURATION
          * Dito mo papalitan ang API credentials kung gagawa ka ng bagong Firebase project.
-         * Siguraduhing tama ang apiKey at databaseURL.
+         * Siguraduhing tama ang apiKey at databaseURL. I-check mo sa Firebase Console > Project Settings.
          */
         const firebaseConfig = {
             apiKey: "AIzaSyD2y1CoaxbmmX_mH83GOwQ8eiQLEJ0WYdw",
@@ -157,13 +164,14 @@
         const uiStatus = document.getElementById('ui-status');
         const uiBattery = document.getElementById('ui-battery');
         const uiTime = document.getElementById('ui-time');
+        const uiUptime = document.getElementById('ui-uptime'); // V24.0 Uptime Text
         const uiDistance = document.getElementById('ui-distance');
         const loadingScreen = document.getElementById('loading');
 
         /*
          * DEVELOPER NOTE: TIME FORMATTER FIX
          * Inaayos nito kung paano ipapakita ang Date at Time mula sa ESP32.
-         * Nilagyan ng blocker para hindi idikit ang date ng browser kung "Waiting for GPS" ang status ng motor.
+         * Nilagyan ng blocker para hindi idikit ang date ng browser kung "Waiting for GPS" ang status ng motor, para walang umaandar na "fake date".
          */
         function getFormattedDateTime(timeStr) {
             if (timeStr && timeStr.length > 0) {
@@ -172,7 +180,7 @@
                     return timeStr;
                 }
                 
-                // Kapag buo na ang petsa (v23.8 NVS Firmware), tanggalin lang ang brackets
+                // Kapag buo na ang petsa (v23.8+ NVS Firmware), tanggalin lang ang brackets
                 if (timeStr.includes("/")) {
                     return timeStr.replace(/[\[\]]/g, '');
                 } else {
@@ -192,7 +200,11 @@
             return dateStr + " " + now.toLocaleTimeString();
         }
 
-        // TUTORIAL: Ito ang kumukuha ng Live Data mula sa Realtime Database ng Firebase ("location" node)
+        /*
+         * TUTORIAL: FIREBASE LOCATION LISTENER
+         * Ito ang kumukuha ng Live Data mula sa Realtime Database ng Firebase ("location" node).
+         * Nagti-trigger ito tuwing may pinipindot kang button o tuwing lumilipas ang 30 segundo (Telemetry Interval).
+         */
         const locationRef = ref(db, 'location');
         onValue(locationRef, (snapshot) => {
             const data = snapshot.val();
@@ -213,6 +225,7 @@
 
                 uiBattery.innerText = data.battery || "-- V";
                 uiTime.innerText = getFormattedDateTime(data.last_update);
+                uiUptime.innerText = data.uptime || "--d --h --m"; // V24.0 Integration
 
                 // CSS STATUS MATCH FIX: Iniiwasang basahin ang "LOCKED" sa loob ng salitang "UNLOCKED"
                 let stat = data.status || "UNKNOWN";
@@ -309,7 +322,7 @@
     </script>
     
     <script>
-        // TUTORIAL: Native OS share location API (gumagana sa mobile browsers)
+        // TUTORIAL: Native OS share location API (gumagana sa mobile browsers at pumupunta sa Messenger/FB apps)
         function shareLocation() {
             if (navigator.share) {
                 navigator.share({
@@ -356,7 +369,7 @@
         }
 
         /*
-         * DEVELOPER NOTE: SEND CLOUD COMMAND
+         * DEVELOPER NOTE: SEND CLOUD COMMAND (FIREBASE HTTP PUT)
          * Nagpapadala ito ng command papunta sa "cloud_cmd" node ng Firebase kasama ang timestamp.
          * Nilagyan ng 15-second timeout bago mag-alert na disconnected ang motor.
          */
