@@ -29,7 +29,7 @@
     .btn-custom { background: #ab47bc; color: #fff; }
     .btn-save { padding: 8px; font-size: 12px; background: #0288d1; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
     
-    /* Terminal Monitor Box */
+    /* Terminal Monitor Box - Standard 10k Char Rolling Buffer */
     #log { width: 90%; max-width: 500px; height: 220px; background: #000; color: #00ff00; border: 1px solid #333; margin: 12px auto; padding: 10px; text-align: left; font-family: monospace; overflow-y: scroll; white-space: pre-wrap; font-size: 12px; box-sizing: border-box; }
 
     /* Map Container Fix */
@@ -78,6 +78,7 @@
     <button class="btn btn-start" onclick="sendCloudCmd('start')">START ENGINE</button>
     <button class="btn btn-lock" onclick="sendCloudCmd('lock')">LOCK / SHUTDOWN</button>
     <button class="btn btn-cmd" onclick="sendCloudCmd('status')">STATUS</button>
+    <button class="btn btn-cmd" onclick="sendCloudCmd('show_commands')">COMMANDS</button>
     <button class="btn btn-custom" style="background:#00838f;" onclick="openNativeGPS()">SHARE LOCATION (MAPS)</button>
     <div id="customButtonsDiv" style="margin-top:10px;"></div>
   </div>
@@ -236,6 +237,9 @@
     function openLoginModal() { document.getElementById('loginModal').style.display = 'flex'; }
     function closeLoginModal() { document.getElementById('loginModal').style.display = 'none'; }
 
+    /*
+     * DEVELOPER NOTE: Local UI Authentication & Intro Banner Mirroring
+     */
     function submitModalLogin() {
       let pin = document.getElementById('modalPinInput').value;
       if (pin) {
@@ -377,7 +381,7 @@
     }
 
     /*
-     * DEVELOPER NOTE: Custom Shortcut Buttons Engine
+     * DEVELOPER NOTE: Custom Shortcut Buttons Engine (LocalStorage Synced)
      */
     function getLocalStorageKey() {
       return isAdmin ? 'keyless_admin_btns' : 'keyless_user_btns';
@@ -441,10 +445,10 @@
     }
 
     /*
-     * DEVELOPER NOTE: Live GPS, Telemetry & Cloud Log Telemetry Engine
+     * DEVELOPER NOTE: Dynamic Telemetry, Toggle Auto-Sync & Rolling Terminal Log Buffer
      */
     function syncTelemetry() {
-      fetch(`https://${FIREBASE_HOST}/location.json`).then(r => r.json()).then(data => {
+      fetch(`https://${FIREBASE_HOST}/location.json?t=` + Date.now()).then(r => r.json()).then(data => {
         if (data && data.lat && data.lon) {
           let lat = parseFloat(data.lat);
           let lon = parseFloat(data.lon);
@@ -472,11 +476,19 @@
           if (data.editmode !== undefined) document.getElementById('tog_editmode').checked = data.editmode;
           if (data.emergency !== undefined) document.getElementById('tog_emergency').checked = data.emergency;
           if (data.boot_tune !== undefined) document.getElementById('bootTuneSelect').value = data.boot_tune;
+
+          // Auto-Fill Admin Input Fields
+          if (data.cc1101_freq !== undefined) document.getElementById('cfg_freq').value = data.cc1101_freq;
+          if (data.rssi_thresh !== undefined) document.getElementById('cfg_rssi').value = data.rssi_thresh;
+          if (data.trusted_num !== undefined) document.getElementById('cfg_trusted').value = data.trusted_num;
+          if (data.admin_num !== undefined) document.getElementById('cfg_admin').value = data.admin_num;
+          if (data.tracker_url !== undefined) document.getElementById('cfg_tracker').value = data.tracker_url;
+          if (data.ap_ssid !== undefined) document.getElementById('cfg_ap_ssid').value = data.ap_ssid;
         }
       }).catch(err => {});
 
-      // Fetch Cloud Terminal Logs mula sa Firebase
-      fetch(`https://${FIREBASE_HOST}/cloud_log.json`).then(r => r.json()).then(logData => {
+      // Fetch Full Rolling Terminal Log Buffer mula sa Firebase
+      fetch(`https://${FIREBASE_HOST}/cloud_log.json?t=` + Date.now()).then(r => r.json()).then(logData => {
         if (logData && logData.log) {
           logBox.innerText = logData.log;
           if (!isUserScrolling) {
