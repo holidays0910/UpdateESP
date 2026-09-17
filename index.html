@@ -1,417 +1,259 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>B-Connect Live Tracker</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Keyless Entry System - Cloud Live Tracker</title>
+  
+  <!-- Leaflet Live Map CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    body { font-family: Arial, sans-serif; background: #121212; color: #fff; margin: 0; padding: 15px; }
+    .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+    .header-title { font-size: 18px; font-weight: bold; color: #00e676; }
+    .profile-badge { background: #1e1e1e; border: 1px solid #444; border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: bold; display: flex; align-items: center; gap: 6px; }
+    .badge-admin { color: #00e676; border-color: #00e676; }
+    .badge-user { color: #29b6f6; border-color: #29b6f6; }
     
-    <!-- TUTORIAL: Ito ang mga external libraries para sa Mapa (Leaflet JS). Wag buburahin para gumana ang GPS Maps -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+    .card { background: #1e1e1e; max-width: 500px; margin: 15px auto; padding: 12px; border-radius: 8px; border: 1px solid #333; }
+    .btn { width: 90%; max-width: 320px; padding: 12px; margin: 5px auto; font-size: 15px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; display: block; }
+    .btn-unlock { background: #00e676; color: #000; }
+    .btn-start { background: #29b6f6; color: #000; }
+    .btn-lock { background: #ff1744; color: #fff; }
+    .btn-cmd { background: #424242; color: #fff; }
+    .btn-custom { background: #ab47bc; color: #fff; }
     
-    <style>
-        /* DEVELOPER NOTE: Basic styling para sumakto ang UI mapa sa cellphone at desktop. Naka-Dark Mode. */
-        body, html {
-            margin: 0; padding: 0; height: 100%;
-            font-family: Arial, sans-serif; background-color: #121212;
-            display: flex; flex-direction: column;
-        }
-        
-        #map { flex: 1; width: 100vw; z-index: 1; min-height: 40vh; }
-        
-        .dashboard {
-            height: 55vh; overflow-y: auto; width: 100%;
-            background: #1a1a1a; color: #fff;
-            padding: 15px; box-sizing: border-box;
-            border-top: 2px solid #333;
-        }
-
-        .dashboard-content { max-width: 500px; margin: 0 auto; }
-        h3 { margin: 0 0 10px 0; color: #29b6f6; text-align: center; font-size: 18px; }
-        .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
-        .info-label { color: #aaa; }
-        .info-val { font-weight: bold; text-align: right; }
-        
-        /* DEVELOPER NOTE: CSS na ginagamit para umiba-iba ang kulay base sa eksaktong status ng motor */
-        .status-locked { color: #ff1744 !important; }
-        .status-unlocked { color: #00e676 !important; }
-        .status-engine { color: #ffb300 !important; }
-        
-        .leaflet-routing-container { display: none !important; }
-        
-        .loading-screen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #121212; color: #00e676; display: flex;
-            justify-content: center; align-items: center; z-index: 1000;
-            font-size: 18px; font-weight: bold;
-        }
-
-        .share-btn {
-            width: 100%; background: #00e676; color: #000;
-            padding: 10px; margin-top: 10px; border: none;
-            border-radius: 8px; font-size: 14px; font-weight: bold;
-            cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-        }
-
-        #terminalLog {
-            width: 100%; height: 120px; background: #000; color: #00ff00; 
-            border: 1px solid #333; margin-top: 10px; padding: 8px; 
-            text-align: left; font-family: monospace; overflow-y: scroll; 
-            white-space: pre-wrap; font-size: 11px; box-sizing: border-box; border-radius: 5px;
-        }
-        .cloud-section { margin-top: 15px; border-top: 1px solid #444; padding-top: 10px; }
-    </style>
+    #map { width: 100%; height: 260px; border-radius: 8px; margin-top: 10px; border: 1px solid #333; }
+    
+    .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #424242; transition: .3s; border-radius: 24px; }
+    .slider:before { position: absolute; content: ''; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+    input:checked + .slider { background-color: #00e676; }
+    input:checked + .slider:before { transform: translateX(20px); }
+    
+    .item-row { display: flex; justify-content: space-between; align-items: center; background: #2a2a2a; padding: 8px 12px; margin: 5px 0; border-radius: 5px; }
+    .form-row { display: flex; align-items: center; justify-content: space-between; margin: 8px 0; }
+    .form-row input[type=text], .form-row input[type=password], select { width: 60%; margin: 0; padding: 8px; font-size: 13px; border-radius: 4px; border: none; }
+    .form-row .btn-save { width: 35%; padding: 8px; font-size: 12px; background: #0288d1; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+    
+    .modal { display: flex; position: fixed; z-index: 99; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; }
+    .modal-content { background: #1e1e1e; border: 1px solid #444; border-radius: 10px; padding: 20px; width: 85%; max-width: 350px; text-align: center; }
+  </style>
 </head>
 <body>
 
-    <div id="loading" class="loading-screen">
-        Kumokonekta sa Tracker...
-    </div>
+  <div class="header-bar">
+    <div class="header-title" id="headerTitleText">B - CONNECT</div>
+    <div id="profileBadge" class="profile-badge" style="color:#ff5252; border-color:#ff5252;">🔒 LOCKED</div>
+  </div>
 
-    <!-- MAP SECTION -->
+  <div style="text-align:center;">
+    <span id="cloudStatus" style="font-size:12px; font-weight:bold; color:#00e676;">(CLOUD LINK: SYNCING... | BAT: --V | UPTIME: --)</span>
+  </div>
+
+  <div style="text-align:center; margin-top:8px;">
+    <button id="loginLogoutBtn" class="btn btn-unlock" style="width:60%; display:inline-block;" onclick="openLoginModal()">🔑 LOGIN SYSTEM</button>
+  </div>
+
+  <div id="mainControlsDiv" style="display:none;">
+    <button class="btn btn-unlock" onclick="sendCloudCmd('unlock')">UNLOCK</button>
+    <button class="btn btn-start" onclick="sendCloudCmd('start')">START ENGINE</button>
+    <button class="btn btn-lock" onclick="sendCloudCmd('lock')">LOCK / SHUTDOWN</button>
+    <button class="btn btn-cmd" onclick="sendCloudCmd('status')">STATUS</button>
+    <div id="customButtonsDiv" style="margin-top:10px;"></div>
+  </div>
+
+  <!-- Live Moving GPS Map Card -->
+  <div class="card">
+    <b style="color:#00e676;">📡 LIVE GPS TRACKER (REAL-TIME)</b><br>
     <div id="map"></div>
+    <p id="gpsCoordsText" style="font-size:12px; color:#aaa; margin-top:8px; text-align:center;">Waiting for Satellite Telemetry...</p>
+  </div>
 
-    <!-- DASHBOARD SECTION -->
-    <div class="dashboard">
-        <div class="dashboard-content">
-            <h3>ONLINE TELEMETRY</h3>
-            <div class="info-row">
-                <span class="info-label">System Status:</span>
-                <span class="info-val" id="ui-status">WAITING...</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Layo mo sa Motor:</span>
-                <span class="info-val" id="ui-distance" style="color:#ffb300;">Kinakalkula...</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Main Battery:</span>
-                <span class="info-val" id="ui-battery">-- V</span>
-            </div>
-            <!-- V24.0: SYSTEM UPTIME DISPLAY -->
-            <div class="info-row">
-                <span class="info-label">System Uptime:</span>
-                <span class="info-val" id="ui-uptime" style="color:#ab47bc;">--d --h --m</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Last GPS Fetch:</span>
-                <span class="info-val" id="ui-time">--/--/---- --:--:--</span>
-            </div>
-            
-            <button class="share-btn" onclick="shareLocation()">📍 SHARE LIVE LOCATION</button>
-
-            <!-- ONLINE REMOTE CONTROL SECTION -->
-            <div class="cloud-section">
-                <h3 style="color:#ab47bc; font-size: 16px;">ONLINE REMOTE CONTROL</h3>
-                
-                <button id="authBtn" class="share-btn" style="background:#ab47bc; color:#fff;" onclick="toggleAuth()">🔐 LOGIN</button>
-                
-                <div id="controlButtons" style="display: none;">
-                    <!-- V24.0: Kung nag-aalarm ang motor at umi-ring ang phone mo, ang pagpindot sa LOCK dito ay awtomatikong mag-cacancel ng tawag -->
-                    <button class="share-btn" style="background:#00e676; color:#000; margin-top:5px;" onclick="sendCommand('unlock')">🔓 UNLOCK SYSTEM</button>
-                    <button class="share-btn" style="background:#29b6f6; color:#000; margin-top:5px;" onclick="sendCommand('start')">⚡ START ENGINE</button>
-                    <button class="share-btn" style="background:#ff1744; color:#fff; margin-top:5px;" onclick="sendCommand('lock')">🔒 LOCK / SHUTDOWN</button>
-                </div>
-
-                <b style="color:#00e676; font-size:12px; display:block; margin-top:10px;">ONLINE CLOUD TERMINAL</b>
-                <div id="terminalLog">>> Standby. Waiting for commands...</div>
-            </div>
-        </div>
+  <!-- 10 iOS Sliders Card -->
+  <div id="settingsCardDiv" class="card" style="display:none;">
+    <b style="color:#00e676;">&#9881; SYSTEM SETTINGS & TOGGLES</b><br><br>
+    
+    <div class="item-row"><span>&#128680; Tilt Alarm</span><label class="switch"><input type="checkbox" id="tog_alarm" onchange="toggleFeature('alarm', this.checked)"><span class="slider"></span></label></div>
+    <div class="item-row"><span>&#127925; Boot Audio Intro</span><label class="switch"><input type="checkbox" id="tog_intro" onchange="toggleFeature('intro', this.checked)"><span class="slider"></span></label></div>
+    <div class="item-row"><span>&#128251; RF Remote 1</span><label class="switch"><input type="checkbox" id="tog_rem1" onchange="toggleFeature('remote_1', this.checked)"><span class="slider"></span></label></div>
+    <div class="item-row"><span>&#128506; RF Remote 2</span><label class="switch"><input type="checkbox" id="tog_rem2" onchange="toggleFeature('remote_2', this.checked)"><span class="slider"></span></label></div>
+    <div class="item-row"><span>&#128260; Cloud Auto-Update OTA</span><label class="switch"><input type="checkbox" id="tog_ota" onchange="toggleFeature('autoupdate', this.checked)"><span class="slider"></span></label></div>
+    
+    <div id="adminSlidersDiv" style="display:none;">
+      <div class="item-row"><span>&#128267; Wi-Fi Battery Saver</span><label class="switch"><input type="checkbox" id="tog_batsaver" onchange="toggleFeature('battery_saver', this.checked)"><span class="slider"></span></label></div>
+      <div class="item-row"><span>&#9729; Live Cloud Control</span><label class="switch"><input type="checkbox" id="tog_livectrl" onchange="toggleFeature('live_control', this.checked)"><span class="slider"></span></label></div>
+      <div class="item-row"><span>&#128226; Push Button PIN Mode</span><label class="switch"><input type="checkbox" id="tog_pinmode" onchange="toggleFeature('pinmode', this.checked)"><span class="slider"></span></label></div>
+      <div class="item-row"><span>&#9999; Direct PIN Edit Allowed</span><label class="switch"><input type="checkbox" id="tog_editmode" onchange="toggleFeature('editmode', this.checked)"><span class="slider"></span></label></div>
+      <div class="item-row"><span>&#127384; Emergency PIN Bypass</span><label class="switch"><input type="checkbox" id="tog_emergency" onchange="toggleFeature('emergency', this.checked)"><span class="slider"></span></label></div>
     </div>
 
-    <!-- Leaflet JS & Routing Machine JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+    <div style="margin-top:15px; text-align:center;">
+      <span style="font-size:13px; font-weight:bold; color:#29b6f6;">&#127925; Select Boot Audio Preset:</span><br>
+      <select id="bootTuneSelect" onchange="changeBootTune(this.value)">
+        <option value="1">1. Nokia Tune (Default)</option>
+        <option value="2">2. Baby Shark</option>
+        <option value="3">3. Cocomelon</option>
+        <option value="4">4. Super Mario</option>
+        <option value="5">5. Transformers</option>
+        <option value="6">6. Coffin Dance</option>
+      </select>
+    </div>
+  </div>
 
-    <!-- Firebase v10 Modular SDK -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
-
-        /*
-         * TUTORIAL: FIREBASE CONFIGURATION
-         * Dito mo papalitan ang API credentials kung gagawa ka ng bagong Firebase project.
-         * Siguraduhing tama ang apiKey at databaseURL. I-check mo sa Firebase Console > Project Settings.
-         */
-        const firebaseConfig = {
-            apiKey: "AIzaSyD2y1CoaxbmmX_mH83GOwQ8eiQLEJ0WYdw",
-            databaseURL: "https://keylesstrackerrenz-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "keylesstrackerrenz"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-
-        // INITIALIZE MAP (Leaflet.js)
-        var map = L.map('map', { zoomControl: false }).setView([14.5995, 120.9842], 16);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-
-        var motorIcon = L.icon({
-            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-            iconSize: [25, 41], iconAnchor: [12, 41]
-        });
-        var motorMarker = L.marker([14.5995, 120.9842], {icon: motorIcon}).addTo(map);
-        
-        var userMarker = L.circleMarker([0, 0], {
-            color: '#29b6f6', fillColor: '#29b6f6', fillOpacity: 0.8, radius: 8
-        }).addTo(map);
-
-        var isFirstLoad = true;
-        var routeControl = null;
-        var motorLatLng = null;
-        var userLatLng = null;
-
-        const uiStatus = document.getElementById('ui-status');
-        const uiBattery = document.getElementById('ui-battery');
-        const uiTime = document.getElementById('ui-time');
-        const uiUptime = document.getElementById('ui-uptime'); // V24.0 Uptime Text
-        const uiDistance = document.getElementById('ui-distance');
-        const loadingScreen = document.getElementById('loading');
-
-        /*
-         * DEVELOPER NOTE: TIME FORMATTER FIX
-         * Inaayos nito kung paano ipapakita ang Date at Time mula sa ESP32.
-         * Nilagyan ng blocker para hindi idikit ang date ng browser kung "Waiting for GPS" ang status ng motor, para walang umaandar na "fake date".
-         */
-        function getFormattedDateTime(timeStr) {
-            if (timeStr && timeStr.length > 0) {
-                // Kapag wala pang GPS Fix ang motor, iwasan magpakita ng pekeng petsa.
-                if (timeStr.includes("Waiting") || timeStr.includes("No GPS")) {
-                    return timeStr;
-                }
-                
-                // Kapag buo na ang petsa (v23.8+ NVS Firmware), tanggalin lang ang brackets
-                if (timeStr.includes("/")) {
-                    return timeStr.replace(/[\[\]]/g, '');
-                } else {
-                    // Fallback kapag format ay "Time Only". Kukunin ang date mula sa cellphone
-                    let now = new Date();
-                    let dateStr = String(now.getMonth() + 1).padStart(2, '0') + '/' + 
-                                  String(now.getDate()).padStart(2, '0') + '/' + 
-                                  now.getFullYear();
-                    return dateStr + " " + timeStr.replace(/[\[\]]/g, '');
-                }
-            }
-            // Fallback kapag walang ipinadala ang ESP32
-            let now = new Date();
-            let dateStr = String(now.getMonth() + 1).padStart(2, '0') + '/' + 
-                          String(now.getDate()).padStart(2, '0') + '/' + 
-                          now.getFullYear();
-            return dateStr + " " + now.toLocaleTimeString();
-        }
-
-        /*
-         * TUTORIAL: FIREBASE LOCATION LISTENER
-         * Ito ang kumukuha ng Live Data mula sa Realtime Database ng Firebase ("location" node).
-         * Nagti-trigger ito tuwing may pinipindot kang button o tuwing lumilipas ang 30 segundo (Telemetry Interval).
-         */
-        const locationRef = ref(db, 'location');
-        onValue(locationRef, (snapshot) => {
-            const data = snapshot.val();
-            if (data && data.lat && data.lon) {
-                motorLatLng = L.latLng(data.lat, data.lon);
-                
-                // Kapag 0.0 ang nakuha, ibig sabihin walang GPS, wag i-move ang marker sa gitna ng dagat
-                if(data.lat != 0.0 && data.lon != 0.0) {
-                    motorMarker.setLatLng(motorLatLng);
-                }
-
-                if(isFirstLoad) { 
-                    loadingScreen.style.display = 'none'; 
-                    map.flyTo(motorLatLng, 16, { animate: true, duration: 1.5 });
-                    setTimeout(() => { map.invalidateSize(); }, 500);
-                    isFirstLoad = false; 
-                }
-
-                uiBattery.innerText = data.battery || "-- V";
-                uiTime.innerText = getFormattedDateTime(data.last_update);
-                uiUptime.innerText = data.uptime || "--d --h --m"; // V24.0 Integration
-
-                // CSS STATUS MATCH FIX: Iniiwasang basahin ang "LOCKED" sa loob ng salitang "UNLOCKED"
-                let stat = data.status || "UNKNOWN";
-                uiStatus.innerText = stat;
-                uiStatus.className = "info-val"; // Reset class
-
-                if (stat === "LOCKED") {
-                    uiStatus.classList.add("status-locked");
-                } else if (stat === "UNLOCKED") {
-                    uiStatus.classList.add("status-unlocked");
-                } else if (stat === "ENGINE RUNNING") {
-                    uiStatus.classList.add("status-engine");
-                }
-
-                updateRoute();
-            }
-        });
-
-        // TUTORIAL: Kumukuha ng live location ng cellphone mo para kalkulahin ang distansya papunta sa motor
-        if ("geolocation" in navigator) {
-            navigator.geolocation.watchPosition(function(position) {
-                userLatLng = L.latLng(position.coords.latitude, position.coords.longitude);
-                userMarker.setLatLng(userLatLng);
-                updateRoute();
-            }, function(error) {
-                uiDistance.innerText = "Location access denied";
-            }, { enableHighAccuracy: true });
-        } else {
-            uiDistance.innerText = "GPS Not Supported";
-        }
-
-        /*
-         * DEVELOPER NOTE: DYNAMIC DISTANCE CALCULATION
-         * Nagko-convert mula Meters papuntang Kilometers kapag umabot ng 1000m ang layo.
-         */
-        function updateRoute() {
-            if (motorLatLng && userLatLng && motorLatLng.lat != 0.0) {
-                let distanceMeters = userLatLng.distanceTo(motorLatLng);
-                
-                if (distanceMeters < 1000) {
-                    uiDistance.innerText = Math.round(distanceMeters) + " meters";
-                } else {
-                    let distanceKm = (distanceMeters / 1000).toFixed(2);
-                    uiDistance.innerText = distanceKm + " km";
-                }
-
-                if (routeControl) {
-                    routeControl.setWaypoints([userLatLng, motorLatLng]);
-                } else {
-                    routeControl = L.Routing.control({
-                        waypoints: [userLatLng, motorLatLng],
-                        createMarker: function() { return null; }, 
-                        routeWhileDragging: false,
-                        addWaypoints: false,
-                        show: false, 
-                        fitSelectedRoutes: false, 
-                        lineOptions: { styles: [{color: '#29b6f6', opacity: 0.8, weight: 5}] }
-                    }).addTo(map);
-                }
-            }
-        }
-
-        // TUTORIAL: Ito ang taga-basa ng Cloud Terminal Replies ng ESP32 mula sa "cloud_log" node
-        const logRef = ref(db, 'cloud_log');
-        let lastLogTs = 0;
-        
-        onValue(logRef, (snapshot) => {
-            const data = snapshot.val();
-            if (data && data.ts && data.ts > lastLogTs) {
-                lastLogTs = data.ts;
-                const terminal = document.getElementById('terminalLog');
-                terminal.innerHTML += "\n" + data.log;
-                terminal.scrollTop = terminal.scrollHeight;
-
-                if (window.isWaitingForReply) {
-                    window.isWaitingForReply = false;
-                    clearTimeout(window.commandTimeout);
-                }
-
-                if (data.log.includes("LOGIN SUCCESS")) {
-                    window.isLoggedIn = true;
-                    document.getElementById("controlButtons").style.display = "block";
-                    const btn = document.getElementById("authBtn");
-                    btn.style.background = "#f57c00";
-                    btn.innerHTML = "🔓 LOGOUT";
-                } 
-                else if (data.log.includes("LOGIN FAILED") || data.log.includes("Invalid PIN")) {
-                    window.sessionPin = "";
-                    window.isLoggedIn = false;
-                    alert("Invalid PIN or Master Key!");
-                }
-            }
-        });
-    </script>
+  <!-- Dedicated Admin System Config Card -->
+  <div id="adminConfigCardDiv" class="card" style="display:none;">
+    <b style="color:#ab47bc;">🛠️ ADVANCED SYSTEM CONFIG (ADMIN)</b><br><br>
     
-    <script>
-        // TUTORIAL: Native OS share location API (gumagana sa mobile browsers at pumupunta sa Messenger/FB apps)
-        function shareLocation() {
-            if (navigator.share) {
-                navigator.share({
-                    title: 'Live Motorcycle Tracker',
-                    text: 'Tingnan ang live location at ruta ng motor ko rito:',
-                    url: window.location.href
-                }).then(() => {
-                    console.log('Nai-share nang maayos!');
-                }).catch(console.error);
-            } else {
-                alert("Hindi supported ng browser mo ang Share feature. Kopyahin mo na lang ang link ng website na ito.");
-            }
+    <span style="font-size:11px; color:#aaa;">📻 CC1101 Frequency (MHz):</span>
+    <div class="form-row"><input type="text" id="cfg_freq" placeholder="433.92"><button class="btn-save" onclick="sendCloudCmd('set_freq ' + document.getElementById('cfg_freq').value)">SAVE FREQ</button></div>
+    
+    <span style="font-size:11px; color:#aaa;">📶 CC1101 RSSI Threshold (dBm):</span>
+    <div class="form-row"><input type="text" id="cfg_rssi" placeholder="-85"><button class="btn-save" onclick="sendCloudCmd('set_rssi ' + document.getElementById('cfg_rssi').value)">SAVE RSSI</button></div>
+    
+    <span style="font-size:11px; color:#aaa;">🗺️ Live Tracker Map Link:</span>
+    <div class="form-row"><input type="text" id="cfg_tracker" placeholder="Tracker URL"><button class="btn-save" onclick="sendCloudCmd('set_tracker_url ' + document.getElementById('cfg_tracker').value)">SAVE LINK</button></div>
+
+    <span style="font-size:11px; color:#aaa;">📞 Owner Trusted Num (SMS & Call):</span>
+    <div class="form-row"><input type="text" id="cfg_trusted" placeholder="+639..."><button class="btn-save" onclick="sendCloudCmd('set_trusted_num ' + document.getElementById('cfg_trusted').value)">SAVE TRUSTED</button></div>
+
+    <span style="font-size:11px; color:#aaa;">👨‍💻 Developer Admin Number:</span>
+    <div class="form-row"><input type="text" id="cfg_admin" placeholder="+639..."><button class="btn-save" onclick="sendCloudCmd('set_admin_num ' + document.getElementById('cfg_admin').value)">SAVE ADMIN</button></div>
+
+    <span style="font-size:11px; color:#aaa;">☁️ Firebase Database Host URL:</span>
+    <div class="form-row"><input type="text" id="cfg_fb" placeholder="database.firebaseio.com"><button class="btn-save" onclick="sendCloudCmd('set_firebase ' + document.getElementById('cfg_fb').value)">SAVE FIREBASE</button></div>
+
+    <span style="font-size:11px; color:#aaa;">🐙 GitHub Repo (User Repo):</span>
+    <div class="form-row"><input type="text" id="cfg_gh" placeholder="user repo"><button class="btn-save" onclick="sendCloudCmd('set_github ' + document.getElementById('cfg_gh').value)">SAVE GITHUB</button></div>
+
+    <span style="font-size:11px; color:#aaa;">🌐 Hotspot SSID Name:</span>
+    <div class="form-row"><input type="text" id="cfg_ap_ssid" placeholder="Hotspot Name"><button class="btn-save" onclick="sendCloudCmd('set_ap_ssid ' + document.getElementById('cfg_ap_ssid').value)">SAVE SSID</button></div>
+
+    <span style="font-size:11px; color:#aaa;">🔑 Hotspot Password:</span>
+    <div class="form-row"><input type="password" id="cfg_ap_pass" placeholder="Hotspot Pass"><button class="btn-save" onclick="sendCloudCmd('set_ap_pass ' + document.getElementById('cfg_ap_pass').value)">SAVE PASS</button></div>
+  </div>
+
+  <!-- Modal Login Prompt -->
+  <div id="loginModal" class="modal">
+    <div class="modal-content">
+      <h3 style="color:#00e676; margin-top:0;">🔑 SYSTEM AUTHENTICATION</h3>
+      <p style="font-size:12px; color:#aaa;">Enter Direct PIN (User) or Master Key (Admin):</p>
+      <input type="password" id="modalPinInput" placeholder="Enter PIN..." style="width:80%; padding:10px; margin-bottom:15px;"><br>
+      <button class="btn btn-unlock" style="width:80%;" onclick="submitModalLogin()">SUBMIT ACCESS</button>
+      <button class="btn btn-cmd" style="width:80%; background:#555;" onclick="closeLoginModal()">CANCEL</button>
+    </div>
+  </div>
+
+  <p style="color:#555; font-size:11px; margin-top:25px; text-align:center;">Developed by: RENZ ALDRIN GOMEZ</p>
+
+  <script>
+    const FIREBASE_HOST = "keylesstrackerrenz-default-rtdb.asia-southeast1.firebasedatabase.app";
+    const ADMIN_KEY = "79910101";
+
+    let activePin = "";
+    let isAdmin = false;
+    let map, marker;
+
+    function initMap() {
+      map = L.map('map').setView([14.5995, 120.9842], 15);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+      marker = L.marker([14.5995, 120.9842]).addTo(map).bindPopup("Vehicle Location").openPopup();
+    }
+    initMap();
+
+    function openLoginModal() { document.getElementById('loginModal').style.display = 'flex'; }
+    function closeLoginModal() { document.getElementById('loginModal').style.display = 'none'; }
+
+    function submitModalLogin() {
+      let pin = document.getElementById('modalPinInput').value;
+      if (pin) {
+        activePin = pin;
+        isAdmin = (pin === ADMIN_KEY);
+        
+        document.getElementById('loginLogoutBtn').className = "btn btn-lock";
+        document.getElementById('loginLogoutBtn').innerText = "🚪 LOGOUT SESSION";
+        document.getElementById('loginLogoutBtn').onclick = logoutSession;
+
+        let badge = document.getElementById('profileBadge');
+        if (isAdmin) {
+          badge.className = "profile-badge badge-admin";
+          badge.innerText = "👨‍💻 ADMIN PROFILE";
+          document.getElementById('adminSlidersDiv').style.display = "block";
+          document.getElementById('adminConfigCardDiv').style.display = "block";
+        } else {
+          badge.className = "profile-badge badge-user";
+          badge.innerText = "👤 OWNER PROFILE";
+          document.getElementById('adminSlidersDiv').style.display = "none";
+          document.getElementById('adminConfigCardDiv').style.display = "none";
         }
 
-        window.sessionPin = "";
-        window.isLoggedIn = false;
-        window.commandTimeout = null;
-        window.isWaitingForReply = false;
+        document.getElementById('mainControlsDiv').style.display = "block";
+        document.getElementById('settingsCardDiv').style.display = "block";
+        closeLoginModal();
 
-        function appendLocalLog(msg) {
-            const term = document.getElementById('terminalLog');
-            term.innerHTML += "\n" + msg;
-            term.scrollTop = term.scrollHeight;
+        sendCloudCmd("login_check");
+      }
+    }
+
+    function logoutSession() {
+      activePin = "";
+      isAdmin = false;
+      document.getElementById('profileBadge').className = "profile-badge";
+      document.getElementById('profileBadge').innerText = "🔒 LOCKED";
+      document.getElementById('loginLogoutBtn').className = "btn btn-unlock";
+      document.getElementById('loginLogoutBtn').innerText = "🔑 LOGIN SYSTEM";
+      document.getElementById('loginLogoutBtn').onclick = openLoginModal;
+
+      document.getElementById('mainControlsDiv').style.display = "none";
+      document.getElementById('settingsCardDiv').style.display = "none";
+      document.getElementById('adminConfigCardDiv').style.display = "none";
+    }
+
+    function sendCloudCmd(commandStr) {
+      if (!activePin) { alert("Authenticate first!"); return; }
+
+      let payload = { cmd: commandStr, pin: activePin, ts: Math.floor(Date.now() / 1000) };
+
+      fetch(`https://${FIREBASE_HOST}/cloud_cmd.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).then(r => alert("Cloud Command Dispatched: " + commandStr)).catch(err => alert("Cloud Dispatch Error!"));
+    }
+
+    function toggleFeature(feat, state) {
+      let action = state ? 'enable_' + feat : 'disable_' + feat;
+      sendCloudCmd(action);
+    }
+
+    function changeBootTune(val) {
+      const tunes = ['tune_nokia', 'tune_babyshark', 'tune_cocomelon', 'tune_supermario', 'tune_transformers', 'tune_coffin'];
+      if (tunes[val - 1]) sendCloudCmd(tunes[val - 1]);
+    }
+
+    function syncTelemetry() {
+      fetch(`https://${FIREBASE_HOST}/location.json`).then(r => r.json()).then(data => {
+        if (data && data.lat && data.lon) {
+          let lat = parseFloat(data.lat);
+          let lon = parseFloat(data.lon);
+          
+          if (!isNaN(lat) && !isNaN(lon)) {
+            let newLatLng = new L.LatLng(lat, lon);
+            marker.setLatLng(newLatLng);
+            map.panTo(newLatLng);
+            document.getElementById('gpsCoordsText').innerText = `Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)} | Status: ${data.status || 'ONLINE'}`;
+          }
+          
+          document.getElementById('cloudStatus').innerText = `(BAT: ${data.battery || '--'} | UPTIME: ${data.uptime || '--'})`;
         }
+      }).catch(err => {});
+    }
 
-        // TUTORIAL: Log In Authentication
-        function toggleAuth() {
-            if (window.isLoggedIn) {
-                window.isLoggedIn = false;
-                window.sessionPin = "";
-                document.getElementById("controlButtons").style.display = "none";
-                const btn = document.getElementById("authBtn");
-                btn.style.background = "#ab47bc";
-                btn.innerHTML = "🔐 LOGIN";
-                appendLocalLog(">> ONLINE SESSION: User logged out successfully.");
-            } else {
-                let pin = prompt("Enter Direct PIN or Master Key:");
-                if (pin && pin.trim().length > 0) {
-                    window.sessionPin = pin.trim();
-                    appendLocalLog(">> ONLINE SESSION: Authenticating PIN via Firebase...");
-                    sendCommand("login_check");
-                }
-            }
-        }
-
-        /*
-         * DEVELOPER NOTE: SEND CLOUD COMMAND (FIREBASE HTTP PUT)
-         * Nagpapadala ito ng command papunta sa "cloud_cmd" node ng Firebase kasama ang timestamp.
-         * Nilagyan ng 15-second timeout bago mag-alert na disconnected ang motor.
-         */
-        function sendCommand(cmdAction) {
-            if (cmdAction !== "login_check" && !window.isLoggedIn) {
-                alert("Mag-login muna para maka-access!");
-                return;
-            }
-
-            let payload = {
-                cmd: cmdAction,
-                pin: window.sessionPin,
-                ts: Date.now()
-            };
-
-            // TUTORIAL: Kung mag-iiba ka ng Firebase URL, palitan din ang link sa fetch command na ito
-            fetch("https://keylesstrackerrenz-default-rtdb.asia-southeast1.firebasedatabase.app/cloud_cmd.json", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            }).then(res => {
-                window.isWaitingForReply = true;
-                if (cmdAction !== "login_check") {
-                    appendLocalLog(">> ☁️ Sending command [" + cmdAction.toUpperCase() + "] to motor...");
-                }
-                
-                if (window.commandTimeout) clearTimeout(window.commandTimeout);
-                
-                // Kapag walang nabasang "cloud_log" mula sa motor sa loob ng 15 segundo:
-                window.commandTimeout = setTimeout(() => {
-                    if (window.isWaitingForReply) {
-                        window.isWaitingForReply = false;
-                        appendLocalLog("\n>> ⚠️ CLOUD TIMEOUT: Walang sagot mula sa motor.");
-                        appendLocalLog(">> 💡 TIP: Kung naka-ON ang Battery Saver, maaaring nakatulog na ang Wi-Fi. Mag-text sa SIM800L (ex. PING) o gumamit ng RF remote para magising ang system.\n");
-                        
-                        if(cmdAction === "login_check") window.sessionPin = ""; 
-                    }
-                }, 15000); 
-            }).catch(err => {
-                appendLocalLog(">> ❌ NETWORK ERROR: Failed to reach Firebase.");
-            });
-        }
-    </script>
+    setInterval(syncTelemetry, 4000);
+    syncTelemetry();
+  </script>
 </body>
 </html>
