@@ -19,19 +19,23 @@
     .badge-admin { color: #00e676; border-color: #00e676; }
     .badge-user { color: #29b6f6; border-color: #29b6f6; }
     
-    /* Cards & Buttons with Z-Index Layering Fix */
+    /* Cards & Buttons Layout */
     .card { background: #1e1e1e; max-width: 500px; margin: 15px auto; padding: 12px; border-radius: 8px; border: 1px solid #333; position: relative; z-index: 1; }
     .btn { width: 90%; max-width: 320px; padding: 12px; margin: 5px auto; font-size: 15px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; display: block; position: relative; z-index: 10; }
     .btn-unlock { background: #00e676; color: #000; }
     .btn-start { background: #29b6f6; color: #000; }
     .btn-lock { background: #ff1744; color: #fff; }
     .btn-cmd { background: #424242; color: #fff; }
+    .btn-custom { background: #ab47bc; color: #fff; }
     .btn-save { padding: 8px; font-size: 12px; background: #0288d1; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
     
+    /* Terminal Monitor Box */
+    #log { width: 90%; max-width: 500px; height: 220px; background: #000; color: #00ff00; border: 1px solid #333; margin: 12px auto; padding: 10px; text-align: left; font-family: monospace; overflow-y: scroll; white-space: pre-wrap; font-size: 12px; box-sizing: border-box; }
+
     /* Map Container Fix */
     #map { width: 100%; height: 240px; border-radius: 8px; margin-top: 10px; border: 1px solid #333; position: relative; z-index: 1; }
     
-    /* Modal Popup Layering Fix (Hidden by default) */
+    /* Modal Popup Layering Fix */
     .modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; }
     .modal-content { background: #1e1e1e; border: 1px solid #444; border-radius: 10px; padding: 20px; width: 85%; max-width: 350px; text-align: center; }
 
@@ -46,6 +50,9 @@
     .item-row { display: flex; justify-content: space-between; align-items: center; background: #2a2a2a; padding: 8px 12px; margin: 5px 0; border-radius: 5px; }
     .form-row { display: flex; align-items: center; justify-content: space-between; margin: 8px 0; }
     .form-row input[type=text], .form-row input[type=password], select { width: 60%; margin: 0; padding: 8px; font-size: 13px; border-radius: 4px; border: none; }
+    .pw-container { position: relative; display: inline-block; width: 60%; }
+    .pw-container input { width: 100%; box-sizing: border-box; padding-right: 30px; }
+    .eye-btn { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); cursor: pointer; background: none; border: none; color: #aaa; font-size: 14px; }
   </style>
 </head>
 <body>
@@ -71,7 +78,15 @@
     <button class="btn btn-start" onclick="sendCloudCmd('start')">START ENGINE</button>
     <button class="btn btn-lock" onclick="sendCloudCmd('lock')">LOCK / SHUTDOWN</button>
     <button class="btn btn-cmd" onclick="sendCloudCmd('status')">STATUS</button>
+    <button class="btn btn-custom" style="background:#00838f;" onclick="openNativeGPS()">SHARE LOCATION (MAPS)</button>
     <div id="customButtonsDiv" style="margin-top:10px;"></div>
+  </div>
+
+  <!-- Terminal Monitor Output & Manual Command Input -->
+  <div id="log">Connecting cloud live terminal...</div>
+  <div style="text-align:center;">
+    <input type="text" id="cmdInput" placeholder="Enter command / PIN..." style="width:60%; max-width:280px; padding:10px; margin:4px; font-size:14px; border-radius:5px; border:none;">
+    <button class="btn btn-cmd" style="width:22%; padding:10px; display:inline-block;" onclick="sendCustomCmd()">SEND</button>
   </div>
 
   <!-- Live Moving GPS Map Card -->
@@ -79,6 +94,7 @@
     <b style="color:#00e676;">📡 LIVE GPS TRACKER (REAL-TIME)</b><br>
     <div id="map"></div>
     <p id="gpsCoordsText" style="font-size:12px; color:#aaa; margin-top:8px; text-align:center;">Waiting for Satellite Telemetry...</p>
+    <button class="btn btn-custom" style="background:#0288d1; width:85%; margin:8px auto 0 auto;" onclick="copyTrackerUrl()">📋 COPY LIVE TRACKER LINK</button>
   </div>
 
   <!-- 10 iOS Sliders Card -->
@@ -137,11 +153,44 @@
     <span style="font-size:11px; color:#aaa;">🐙 GitHub Repo (User Repo):</span>
     <div class="form-row"><input type="text" id="cfg_gh" placeholder="user repo"><button class="btn-save" onclick="sendCloudCmd('set_github ' + document.getElementById('cfg_gh').value)">SAVE GITHUB</button></div>
 
+    <span style="font-size:11px; color:#aaa;">🏷️ Web UI Header Title:</span>
+    <div class="form-row"><input type="text" id="cfg_hdr" placeholder="Header Title"><button class="btn-save" onclick="sendCloudCmd('set_header ' + document.getElementById('cfg_hdr').value)">SAVE HEADER</button></div>
+
+    <span style="font-size:11px; color:#aaa;">🔗 mDNS Local Domain (.local):</span>
+    <div class="form-row"><input type="text" id="cfg_mdns" placeholder="keyless"><button class="btn-save" onclick="sendCloudCmd('set_local_address ' + document.getElementById('cfg_mdns').value)">SAVE MDNS</button></div>
+
     <span style="font-size:11px; color:#aaa;">🌐 Hotspot SSID Name:</span>
     <div class="form-row"><input type="text" id="cfg_ap_ssid" placeholder="Hotspot Name"><button class="btn-save" onclick="sendCloudCmd('set_ap_ssid ' + document.getElementById('cfg_ap_ssid').value)">SAVE SSID</button></div>
 
     <span style="font-size:11px; color:#aaa;">🔑 Hotspot Password:</span>
-    <div class="form-row"><input type="password" id="cfg_ap_pass" placeholder="Hotspot Pass"><button class="btn-save" onclick="sendCloudCmd('set_ap_pass ' + document.getElementById('cfg_ap_pass').value)">SAVE PASS</button></div>
+    <div class="form-row"><div class="pw-container"><input type="password" id="cfg_ap_pass" placeholder="Hotspot Pass"><button type="button" class="eye-btn" onclick="toggleApPw()">👁️</button></div><button class="btn-save" onclick="sendCloudCmd('set_ap_pass ' + document.getElementById('cfg_ap_pass').value)">SAVE PASS</button></div>
+  </div>
+
+  <!-- Wi-Fi Manager Card (5 Slots) -->
+  <div id="wifiCardDiv" class="card" style="display:none;">
+    <b style="color:#29b6f6;">Wi-Fi Manager (5 Slots Auto-Fill)</b><br>
+    <div style="text-align:center;">
+      <select id="wifiSlotSelect" onchange="updateWifiInputs(this.value)">
+        <option value="1">Slot 1</option><option value="2">Slot 2</option><option value="3">Slot 3</option><option value="4">Slot 4</option><option value="5">Slot 5</option>
+      </select><br>
+      <input type="text" id="wifiSsidInput" placeholder="Wi-Fi Name (SSID)"><br>
+      <div class="pw-container" style="width:65%;">
+        <input type="password" id="wifiPassInput" placeholder="Wi-Fi Password">
+        <button type="button" class="eye-btn" onclick="togglePwVisibility()">👁️</button>
+      </div><br>
+      <button class="btn btn-cmd" style="width:80%; display:inline-block;" onclick="saveWifiSlot()">Validate & Save Wi-Fi</button>
+    </div>
+  </div>
+
+  <!-- Custom Shortcut Buttons Creator Card -->
+  <div id="customMakerDiv" class="card" style="display:none;">
+    <b style="color:#ab47bc;"><span id="customMakerTitle">Custom Buttons</span></b><br>
+    <div style="text-align:center;">
+      <input type="text" id="btnLabel" placeholder="Button Label"><br>
+      <input type="text" id="btnVal" placeholder="Command Text"><br>
+      <button class="btn btn-custom" style="width:80%; display:inline-block;" onclick="addCustomUserButton()">+ SAVE BUTTON</button>
+    </div>
+    <div id="customButtonsList" style="margin-top:10px;"></div>
   </div>
 
   <!-- Modal Login Popup Prompt -->
@@ -159,13 +208,23 @@
 
   <script>
     const FIREBASE_HOST = "keylesstrackerrenz-default-rtdb.asia-southeast1.firebasedatabase.app";
-    
-    // Master Key (Gaya ng C++ ADMIN_PASSWORD)
     let adminPassword = "79910101"; 
 
     let activePin = "";
     let isAdmin = false;
+    let isUserScrolling = false;
+    let editingIndex = -1;
     let map, marker;
+    let currentLat = "0.0", currentLon = "0.0";
+
+    const savedWifiData = [
+      {ssid:"", pass:""}, {ssid:"", pass:""}, {ssid:"", pass:""}, {ssid:"", pass:""}, {ssid:"", pass:""}
+    ];
+
+    const logBox = document.getElementById('log');
+    logBox.addEventListener('scroll', () => { 
+      isUserScrolling = (logBox.scrollHeight - logBox.clientHeight - logBox.scrollTop) > 35; 
+    });
 
     function initMap() {
       map = L.map('map').setView([14.5995, 120.9842], 15);
@@ -177,15 +236,10 @@
     function openLoginModal() { document.getElementById('loginModal').style.display = 'flex'; }
     function closeLoginModal() { document.getElementById('loginModal').style.display = 'none'; }
 
-    /*
-     * DEVELOPER NOTE: Local UI Authentication Mirroring (Pure Silent)
-     */
     function submitModalLogin() {
       let pin = document.getElementById('modalPinInput').value;
       if (pin) {
         activePin = pin;
-        
-        // Dynamic Role Assessment (Admin Key vs Owner PIN)
         isAdmin = (pin === adminPassword);
         
         document.getElementById('loginLogoutBtn').className = "btn btn-lock";
@@ -198,17 +252,22 @@
           badge.innerText = "👨‍💻 ADMIN PROFILE";
           document.getElementById('adminSlidersDiv').style.display = "block";
           document.getElementById('adminConfigCardDiv').style.display = "block";
+          document.getElementById('customMakerTitle').innerText = "Admin Custom Buttons";
         } else {
           badge.className = "profile-badge badge-user";
           badge.innerText = "👤 OWNER PROFILE";
           document.getElementById('adminSlidersDiv').style.display = "none";
           document.getElementById('adminConfigCardDiv').style.display = "none";
+          document.getElementById('customMakerTitle').innerText = "User Custom Buttons";
         }
 
         document.getElementById('mainControlsDiv').style.display = "block";
         document.getElementById('settingsCardDiv').style.display = "block";
+        document.getElementById('wifiCardDiv').style.display = "block";
+        document.getElementById('customMakerDiv').style.display = "block";
         closeLoginModal();
 
+        loadCustomButtons();
         sendCloudCmd("login_check");
       }
     }
@@ -226,10 +285,12 @@
       document.getElementById('mainControlsDiv').style.display = "none";
       document.getElementById('settingsCardDiv').style.display = "none";
       document.getElementById('adminConfigCardDiv').style.display = "none";
+      document.getElementById('wifiCardDiv').style.display = "none";
+      document.getElementById('customMakerDiv').style.display = "none";
     }
 
     /*
-     * DEVELOPER NOTE: Pure Silent Cloud Dispatcher (No Alerts)
+     * DEVELOPER NOTE: Pure Silent Cloud Dispatcher
      */
     function sendCloudCmd(commandStr) {
       if (!activePin) return;
@@ -243,6 +304,15 @@
       }).catch(err => console.error("Cloud Dispatch Error:", err));
     }
 
+    function sendCustomCmd() {
+      let cmdIn = document.getElementById('cmdInput');
+      let v = cmdIn.value;
+      if (v) {
+        sendCloudCmd(v);
+        cmdIn.value = '';
+      }
+    }
+
     function toggleFeature(feat, state) {
       let action = state ? 'enable_' + feat : 'disable_' + feat;
       sendCloudCmd(action);
@@ -253,8 +323,125 @@
       if (tunes[val - 1]) sendCloudCmd(tunes[val - 1]);
     }
 
+    function togglePwVisibility() {
+      let pInput = document.getElementById('wifiPassInput');
+      pInput.type = (pInput.type === 'password') ? 'text' : 'password';
+    }
+
+    function toggleApPw() {
+      let pInput = document.getElementById('cfg_ap_pass');
+      pInput.type = (pInput.type === 'password') ? 'text' : 'password';
+    }
+
+    function updateWifiInputs(slotNum) {
+      let idx = parseInt(slotNum) - 1;
+      if (savedWifiData[idx]) {
+        document.getElementById('wifiSsidInput').value = savedWifiData[idx].ssid || "";
+        document.getElementById('wifiPassInput').value = savedWifiData[idx].pass || "";
+      }
+    }
+
+    function saveWifiSlot() {
+      let slot = document.getElementById('wifiSlotSelect').value;
+      let ssid = document.getElementById('wifiSsidInput').value;
+      let pass = document.getElementById('wifiPassInput').value;
+      if (ssid) {
+        sendCloudCmd(`save_wifi ${slot} ${ssid} ${pass}`);
+      }
+    }
+
+    function openNativeGPS() {
+      if (currentLat === "0.0" || currentLat === "") {
+        alert("Waiting for satellite fix...");
+      } else {
+        window.location.href = `geo:${currentLat},${currentLon}?q=${currentLat},${currentLon}`;
+      }
+    }
+
+    function copyTrackerUrl() {
+      let targetUrl = window.location.href;
+      let textArea = document.createElement('textarea');
+      textArea.value = targetUrl;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        alert('Copied Live Tracker Link to Clipboard:\n' + targetUrl);
+      } catch (err) {
+        alert('Copy Failed. Link: ' + targetUrl);
+      }
+      document.body.removeChild(textArea);
+    }
+
     /*
-     * DEVELOPER NOTE: Live GPS & Telemetry Sync
+     * DEVELOPER NOTE: Custom Shortcut Buttons Engine
+     */
+    function getLocalStorageKey() {
+      return isAdmin ? 'keyless_admin_btns' : 'keyless_user_btns';
+    }
+
+    function loadCustomButtons() {
+      let lsKey = getLocalStorageKey();
+      let btns = JSON.parse(localStorage.getItem(lsKey) || '[]');
+      let div = document.getElementById('customButtonsDiv');
+      let listDiv = document.getElementById('customButtonsList');
+      
+      if (div) div.innerHTML = '';
+      if (listDiv) listDiv.innerHTML = '';
+
+      btns.forEach((b, idx) => {
+        if (div) {
+          div.innerHTML += `<button class='btn btn-custom' onclick='sendCloudCmd("${b.val}")'>${b.label}</button>`;
+        }
+        if (listDiv) {
+          listDiv.innerHTML += `<div class='item-row'><span style='font-size:13px;'><b>${b.label}</b> (${b.val})</span><div><button style='background:#f57c00;color:#fff;border:none;border-radius:4px;padding:4px 8px;margin-right:4px;cursor:pointer;' onclick='editCustomUserButton(${idx})'>EDIT</button><button style='background:#d32f2f;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;' onclick='deleteCustomUserButton(${idx})'>X</button></div></div>`;
+        }
+      });
+    }
+
+    function addCustomUserButton() {
+      let l = document.getElementById('btnLabel').value;
+      let v = document.getElementById('btnVal').value;
+      let lsKey = getLocalStorageKey();
+
+      if (l && v) {
+        let btns = JSON.parse(localStorage.getItem(lsKey) || '[]');
+        if (editingIndex >= 0) {
+          btns[editingIndex] = {label: l, val: v};
+          editingIndex = -1;
+        } else {
+          btns.push({label: l, val: v});
+        }
+        localStorage.setItem(lsKey, JSON.stringify(btns));
+        loadCustomButtons();
+        document.getElementById('btnLabel').value = '';
+        document.getElementById('btnVal').value = '';
+      }
+    }
+
+    function editCustomUserButton(idx) {
+      let lsKey = getLocalStorageKey();
+      let btns = JSON.parse(localStorage.getItem(lsKey) || '[]');
+      if (btns[idx]) {
+        document.getElementById('btnLabel').value = btns[idx].label;
+        document.getElementById('btnVal').value = btns[idx].val;
+        editingIndex = idx;
+      }
+    }
+
+    function deleteCustomUserButton(idx) {
+      let lsKey = getLocalStorageKey();
+      let btns = JSON.parse(localStorage.getItem(lsKey) || '[]');
+      btns.splice(idx, 1);
+      localStorage.setItem(lsKey, JSON.stringify(btns));
+      loadCustomButtons();
+    }
+
+    /*
+     * DEVELOPER NOTE: Live GPS, Telemetry & Cloud Log Telemetry Engine
      */
     function syncTelemetry() {
       fetch(`https://${FIREBASE_HOST}/location.json`).then(r => r.json()).then(data => {
@@ -263,6 +450,8 @@
           let lon = parseFloat(data.lon);
           
           if (!isNaN(lat) && !isNaN(lon)) {
+            currentLat = data.lat.toString();
+            currentLon = data.lon.toString();
             let newLatLng = new L.LatLng(lat, lon);
             marker.setLatLng(newLatLng);
             map.panTo(newLatLng);
@@ -285,9 +474,19 @@
           if (data.boot_tune !== undefined) document.getElementById('bootTuneSelect').value = data.boot_tune;
         }
       }).catch(err => {});
+
+      // Fetch Cloud Terminal Logs mula sa Firebase
+      fetch(`https://${FIREBASE_HOST}/cloud_log.json`).then(r => r.json()).then(logData => {
+        if (logData && logData.log) {
+          logBox.innerText = logData.log;
+          if (!isUserScrolling) {
+            logBox.scrollTop = logBox.scrollHeight;
+          }
+        }
+      }).catch(err => {});
     }
 
-    setInterval(syncTelemetry, 4000);
+    setInterval(syncTelemetry, 3000);
     syncTelemetry();
   </script>
 </body>
