@@ -484,6 +484,11 @@
           if (data.admin_num !== undefined) document.getElementById('cfg_admin').value = data.admin_num;
           if (data.tracker_url !== undefined) document.getElementById('cfg_tracker').value = data.tracker_url;
           if (data.ap_ssid !== undefined) document.getElementById('cfg_ap_ssid').value = data.ap_ssid;
+          if (data.firebase_host !== undefined) document.getElementById('cfg_fb').value = data.firebase_host;
+          if (data.github_repo !== undefined) document.getElementById('cfg_gh').value = data.github_repo;
+          if (data.web_header !== undefined) document.getElementById('cfg_hdr').value = data.web_header;
+          if (data.mdns_name !== undefined) document.getElementById('cfg_mdns').value = data.mdns_name;
+          if (data.ap_pass !== undefined) document.getElementById('cfg_ap_pass').value = data.ap_pass;
         }
       }).catch(err => {});
 
