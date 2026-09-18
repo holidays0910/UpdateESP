@@ -49,10 +49,13 @@
     
     .item-row { display: flex; justify-content: space-between; align-items: center; background: #2a2a2a; padding: 8px 12px; margin: 5px 0; border-radius: 5px; }
     .form-row { display: flex; align-items: center; justify-content: space-between; margin: 8px 0; }
-    .form-row input[type=text], .form-row input[type=password], select { width: 60%; margin: 0; padding: 8px; font-size: 13px; border-radius: 4px; border: none; }
+    .form-row input[type=text], .form-row input[type=password], select, input[type=date] { width: 60%; margin: 0; padding: 8px; font-size: 13px; border-radius: 4px; border: none; }
     .pw-container { position: relative; display: inline-block; width: 60%; }
     .pw-container input { width: 100%; box-sizing: border-box; padding-right: 30px; }
     .eye-btn { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); cursor: pointer; background: none; border: none; color: #aaa; font-size: 14px; }
+    .stat-box { display: flex; justify-content: space-around; background: #2a2a2a; padding: 10px; border-radius: 5px; margin-top: 10px; text-align: center; font-size: 12px; }
+    .stat-item { flex: 1; }
+    .stat-val { font-size: 15px; font-weight: bold; color: #29b6f6; margin-top: 4px; }
   </style>
 </head>
 <body>
@@ -94,6 +97,21 @@
     <div id="map"></div>
     <p id="gpsCoordsText" style="font-size:12px; color:#aaa; margin-top:8px; text-align:center;">Waiting for Satellite Telemetry...</p>
     <button class="btn btn-custom" style="background:#0288d1; width:85%; margin:8px auto 0 auto;" onclick="openGoogleMapsDirections()">🗺️ OPEN GMAP LOCATION</button>
+  </div>
+
+  <!-- Historical Route & Analytics Card -->
+  <div id="historyCardDiv" class="card" style="display:none;">
+    <b style="color:#ab47bc;">📊 HISTORICAL ROUTE ANALYTICS</b><br>
+    <div class="form-row" style="margin-top:10px;">
+      <input type="date" id="historyDateInput">
+      <button class="btn-save" style="background:#ab47bc;" onclick="loadHistoricalRoute()">LOAD ROUTE</button>
+    </div>
+    <div class="stat-box">
+      <div class="stat-item">Distance<div class="stat-val" id="statDistance">0.0 km</div></div>
+      <div class="stat-item">Top Speed<div class="stat-val" id="statTopSpeed">0 km/h</div></div>
+      <div class="stat-item">Avg Speed<div class="stat-val" id="statAvgSpeed">0 km/h</div></div>
+      <div class="stat-item">Engine Time<div class="stat-val" id="statEngineTime">0m</div></div>
+    </div>
   </div>
 
   <!-- 10 iOS Sliders Card -->
@@ -201,7 +219,7 @@
     let activePin = "";
     let isAdmin = false;
     let isUserScrolling = false;
-    let map, marker;
+    let map, marker, routePolyline;
     let currentLat = "0.0", currentLon = "0.0";
 
     const savedWifiData = [
@@ -223,9 +241,6 @@
     function openLoginModal() { document.getElementById('loginModal').style.display = 'flex'; }
     function closeLoginModal() { document.getElementById('loginModal').style.display = 'none'; }
 
-    /*
-     * DEVELOPER NOTE: Local UI Authentication & Intro Banner Mirroring
-     */
     function submitModalLogin() {
       let pin = document.getElementById('modalPinInput').value;
       if (pin) {
@@ -252,9 +267,14 @@
         document.getElementById('mainControlsDiv').style.display = "block";
         document.getElementById('settingsCardDiv').style.display = "block";
         document.getElementById('wifiCardDiv').style.display = "block";
+        document.getElementById('historyCardDiv').style.display = "block";
         closeLoginModal();
 
         sendCloudCmd("login_check");
+        
+        // Auto set today's date in history input
+        let today = new Date().toISOString().split('T')[0];
+        document.getElementById('historyDateInput').value = today;
       }
     }
 
@@ -272,16 +292,12 @@
       document.getElementById('settingsCardDiv').style.display = "none";
       document.getElementById('adminConfigCardDiv').style.display = "none";
       document.getElementById('wifiCardDiv').style.display = "none";
+      document.getElementById('historyCardDiv').style.display = "none";
     }
 
-    /*
-     * DEVELOPER NOTE: Pure Silent Cloud Dispatcher
-     */
     function sendCloudCmd(commandStr) {
       if (!activePin) return;
-
       let payload = { cmd: commandStr, pin: activePin, ts: Math.floor(Date.now() / 1000) };
-
       fetch(`https://${FIREBASE_HOST}/cloud_cmd.json`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -292,10 +308,7 @@
     function sendCustomCmd() {
       let cmdIn = document.getElementById('cmdInput');
       let v = cmdIn.value;
-      if (v) {
-        sendCloudCmd(v);
-        cmdIn.value = '';
-      }
+      if (v) { sendCloudCmd(v); cmdIn.value = ''; }
     }
 
     function toggleFeature(feat, state) {
@@ -330,20 +343,11 @@
       let slot = document.getElementById('wifiSlotSelect').value;
       let ssid = document.getElementById('wifiSsidInput').value;
       let pass = document.getElementById('wifiPassInput').value;
-      if (ssid) {
-        sendCloudCmd(`save_wifi ${slot} ${ssid} ${pass}`);
-      }
+      if (ssid) { sendCloudCmd(`save_wifi ${slot} ${ssid} ${pass}`); }
     }
 
-    /*
-     * DEVELOPER NOTE: Routing feature using phone's GPS + ESP32 Coordinates
-     */
     function openGoogleMapsDirections() {
-      if (currentLat === "0.0" || currentLat === "") {
-        alert("Waiting for vehicle satellite fix...");
-        return;
-      }
-      
+      if (currentLat === "0.0" || currentLat === "") { alert("Waiting for vehicle satellite fix..."); return; }
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition((pos) => {
           let phoneLat = pos.coords.latitude;
@@ -357,19 +361,78 @@
       }
     }
 
-    function syncPhoneGps() { 
-      if (navigator.geolocation) { 
-        navigator.geolocation.getCurrentPosition((pos) => { 
-          fetch('/sync_phone_gps?lat=' + pos.coords.latitude + '&lon=' + pos.coords.longitude).catch(e => {}); 
-        }, (err) => {}, { enableHighAccuracy: true, timeout: 5000 }); 
-      } 
-    } 
-    syncPhoneGps(); 
-    setInterval(syncPhoneGps, 15000);
+    /*
+     * DEVELOPER NOTE: Haversine Formula for Distance Calculation (km)
+     */
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371; 
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
 
     /*
-     * DEVELOPER NOTE: Dynamic Telemetry, Toggle Auto-Sync & Rolling Terminal Log Buffer
+     * DEVELOPER NOTE: Load & Render Historical Polyline Route on Leaflet Map
      */
+    function loadHistoricalRoute() {
+      let selectedDate = document.getElementById('historyDateInput').value;
+      if (!selectedDate) return;
+
+      fetch(`https://${FIREBASE_HOST}/route_history/${selectedDate}.json`).then(r => r.json()).then(data => {
+        if (!data) {
+          alert("No recorded route history for " + selectedDate);
+          if (routePolyline) map.removeLayer(routePolyline);
+          document.getElementById('statDistance').innerText = "0.0 km";
+          document.getElementById('statTopSpeed').innerText = "0 km/h";
+          document.getElementById('statAvgSpeed').innerText = "0 km/h";
+          document.getElementById('statEngineTime').innerText = "0m";
+          return;
+        }
+
+        let routeCoords = [];
+        let totalDist = 0;
+        let speeds = [];
+        let entriesCount = Object.keys(data).length;
+
+        let prevLat = null, prevLon = null;
+
+        Object.keys(data).forEach(key => {
+          let item = data[key];
+          if (item.lat && item.lon) {
+            let lat = parseFloat(item.lat);
+            let lon = parseFloat(item.lon);
+            routeCoords.push([lat, lon]);
+
+            if (prevLat !== null && prevLon !== null) {
+              totalDist += calculateDistance(prevLat, prevLon, lat, lon);
+            }
+            prevLat = lat; prevLon = lon;
+
+            if (item.speed !== undefined) speeds.push(parseFloat(item.speed));
+          }
+        });
+
+        if (routePolyline) map.removeLayer(routePolyline);
+
+        if (routeCoords.length > 0) {
+          routePolyline = L.polyline(routeCoords, { color: '#ff1744', weight: 4 }).addTo(map);
+          map.fitBounds(routePolyline.getBounds());
+
+          let topSpd = speeds.length > 0 ? Math.max(...speeds) : 0;
+          let avgSpd = speeds.length > 0 ? (speeds.reduce((a, b) => a + b, 0) / speeds.length) : 0;
+
+          document.getElementById('statDistance').innerText = totalDist.toFixed(1) + " km";
+          document.getElementById('statTopSpeed').innerText = topSpd.toFixed(0) + " km/h";
+          document.getElementById('statAvgSpeed').innerText = avgSpd.toFixed(0) + " km/h";
+          document.getElementById('statEngineTime').innerText = entriesCount + "m";
+        }
+      }).catch(err => console.error("History fetch error:", err));
+    }
+
     function syncTelemetry() {
       fetch(`https://${FIREBASE_HOST}/location.json?t=` + Date.now()).then(r => r.json()).then(data => {
         if (data && data.lat && data.lon) {
@@ -381,13 +444,12 @@
             currentLon = data.lon.toString();
             let newLatLng = new L.LatLng(lat, lon);
             marker.setLatLng(newLatLng);
-            map.panTo(newLatLng);
+            if (!routePolyline) map.panTo(newLatLng);
             document.getElementById('gpsCoordsText').innerText = `Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)} | Status: ${data.status || 'ONLINE'} | Last Update: ${data.last_update || 'Waiting...'}`;
           }
           
           document.getElementById('cloudStatus').innerText = `(BAT: ${data.battery || '--'} | UPTIME: ${data.uptime || '--'})`;
 
-          // Auto-Sync Toggle States
           if (data.alarm !== undefined) document.getElementById('tog_alarm').checked = data.alarm;
           if (data.intro !== undefined) document.getElementById('tog_intro').checked = data.intro;
           if (data.remote_1 !== undefined) document.getElementById('tog_rem1').checked = data.remote_1;
@@ -400,7 +462,6 @@
           if (data.emergency !== undefined) document.getElementById('tog_emergency').checked = data.emergency;
           if (data.boot_tune !== undefined) document.getElementById('bootTuneSelect').value = data.boot_tune;
 
-          // Auto-Fill Admin Input Fields
           if (data.cc1101_freq !== undefined) document.getElementById('cfg_freq').value = data.cc1101_freq;
           if (data.rssi_thresh !== undefined) document.getElementById('cfg_rssi').value = data.rssi_thresh;
           if (data.trusted_num !== undefined) document.getElementById('cfg_trusted').value = data.trusted_num;
@@ -413,7 +474,6 @@
           if (data.mdns_name !== undefined) document.getElementById('cfg_mdns').value = data.mdns_name;
           if (data.ap_pass !== undefined) document.getElementById('cfg_ap_pass').value = data.ap_pass;
 
-          // Sync Wi-Fi Slots Data
           if (data.wf_s1 !== undefined) savedWifiData[0].ssid = data.wf_s1;
           if (data.wf_p1 !== undefined) savedWifiData[0].pass = data.wf_p1;
           if (data.wf_s2 !== undefined) savedWifiData[1].ssid = data.wf_s2;
@@ -425,19 +485,15 @@
           if (data.wf_s5 !== undefined) savedWifiData[4].ssid = data.wf_s5;
           if (data.wf_p5 !== undefined) savedWifiData[4].pass = data.wf_p5;
 
-          // Trigger display update for the currently selected slot
           let currentSlot = document.getElementById('wifiSlotSelect').value;
           updateWifiInputs(currentSlot);
         }
       }).catch(err => {});
 
-      // Fetch Full Rolling Terminal Log Buffer mula sa Firebase
       fetch(`https://${FIREBASE_HOST}/cloud_log.json?t=` + Date.now()).then(r => r.json()).then(logData => {
         if (logData && logData.log) {
           logBox.innerText = logData.log;
-          if (!isUserScrolling) {
-            logBox.scrollTop = logBox.scrollHeight;
-          }
+          if (!isUserScrolling) { logBox.scrollTop = logBox.scrollHeight; }
         }
       }).catch(err => {});
     }
