@@ -164,6 +164,10 @@
     <span style="font-size:11px; color:#aaa;">👨‍💻 Developer Admin Number:</span>
     <div class="form-row"><input type="text" id="cfg_admin" placeholder="+639..."><button class="btn-save" onclick="sendCloudCmd('set_admin_num ' + document.getElementById('cfg_admin').value)">SAVE ADMIN</button></div>
 
+    <!-- IDINAGDAG: Emergency PIN Input Field & Save Button -->
+    <span style="font-size:11px; color:#aaa;">🆘 Emergency PIN Code (8 Digits):</span>
+    <div class="form-row"><div class="pw-container"><input type="password" id="cfg_emg_pin" placeholder="Emergency PIN"><button type="button" class="eye-btn" onclick="toggleEmgPw()">👁️</button></div><button class="btn-save" onclick="sendCloudCmd('set_emg_pin ' + document.getElementById('cfg_emg_pin').value)">SAVE EMG PIN</button></div>
+
     <span style="font-size:11px; color:#aaa;">☁️ Firebase Database Host URL:</span>
     <div class="form-row"><input type="text" id="cfg_fb" placeholder="database.firebaseio.com"><button class="btn-save" onclick="sendCloudCmd('set_firebase ' + document.getElementById('cfg_fb').value)">SAVE FIREBASE</button></div>
 
@@ -272,7 +276,6 @@
 
         sendCloudCmd("login_check");
         
-        // Auto set today's date in history input
         let today = new Date().toISOString().split('T')[0];
         document.getElementById('historyDateInput').value = today;
       }
@@ -331,6 +334,11 @@
       pInput.type = (pInput.type === 'password') ? 'text' : 'password';
     }
 
+    function toggleEmgPw() {
+      let pInput = document.getElementById('cfg_emg_pin');
+      pInput.type = (pInput.type === 'password') ? 'text' : 'password';
+    }
+
     function updateWifiInputs(slotNum) {
       let idx = parseInt(slotNum) - 1;
       if (savedWifiData[idx]) {
@@ -361,9 +369,6 @@
       }
     }
 
-    /*
-     * DEVELOPER NOTE: Haversine Formula for Distance Calculation (km)
-     */
     function calculateDistance(lat1, lon1, lat2, lon2) {
       const R = 6371; 
       const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -375,9 +380,6 @@
       return R * c;
     }
 
-    /*
-     * DEVELOPER NOTE: Load & Render Historical Polyline Route on Leaflet Map
-     */
     function loadHistoricalRoute() {
       let selectedDate = document.getElementById('historyDateInput').value;
       if (!selectedDate) return;
@@ -397,7 +399,6 @@
         let totalDist = 0;
         let speeds = [];
         let entriesCount = Object.keys(data).length;
-
         let prevLat = null, prevLon = null;
 
         Object.keys(data).forEach(key => {
@@ -466,6 +467,7 @@
           if (data.rssi_thresh !== undefined) document.getElementById('cfg_rssi').value = data.rssi_thresh;
           if (data.trusted_num !== undefined) document.getElementById('cfg_trusted').value = data.trusted_num;
           if (data.admin_num !== undefined) document.getElementById('cfg_admin').value = data.admin_num;
+          if (data.emergency_pin !== undefined) document.getElementById('cfg_emg_pin').value = data.emergency_pin;
           if (data.tracker_url !== undefined) document.getElementById('cfg_tracker').value = data.tracker_url;
           if (data.ap_ssid !== undefined) document.getElementById('cfg_ap_ssid').value = data.ap_ssid;
           if (data.firebase_host !== undefined) document.getElementById('cfg_fb').value = data.firebase_host;
