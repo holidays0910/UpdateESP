@@ -79,8 +79,6 @@
     <button class="btn btn-lock" onclick="sendCloudCmd('lock')">LOCK / SHUTDOWN</button>
     <button class="btn btn-cmd" onclick="sendCloudCmd('status')">STATUS</button>
     <button class="btn btn-cmd" onclick="sendCloudCmd('show_commands')">COMMANDS</button>
-    <button class="btn btn-custom" style="background:#00838f;" onclick="openNativeGPS()">SHARE LOCATION (MAPS)</button>
-    <div id="customButtonsDiv" style="margin-top:10px;"></div>
   </div>
 
   <!-- Terminal Monitor Output & Manual Command Input -->
@@ -95,7 +93,7 @@
     <b style="color:#00e676;">📡 LIVE GPS TRACKER (REAL-TIME)</b><br>
     <div id="map"></div>
     <p id="gpsCoordsText" style="font-size:12px; color:#aaa; margin-top:8px; text-align:center;">Waiting for Satellite Telemetry...</p>
-    <button class="btn btn-custom" style="background:#0288d1; width:85%; margin:8px auto 0 auto;" onclick="copyTrackerUrl()">📋 COPY LIVE TRACKER LINK</button>
+    <button class="btn btn-custom" style="background:#0288d1; width:85%; margin:8px auto 0 auto;" onclick="openGoogleMapsDirections()">🗺️ OPEN GMAP LOCATION</button>
   </div>
 
   <!-- 10 iOS Sliders Card -->
@@ -183,17 +181,6 @@
     </div>
   </div>
 
-  <!-- Custom Shortcut Buttons Creator Card -->
-  <div id="customMakerDiv" class="card" style="display:none;">
-    <b style="color:#ab47bc;"><span id="customMakerTitle">Custom Buttons</span></b><br>
-    <div style="text-align:center;">
-      <input type="text" id="btnLabel" placeholder="Button Label"><br>
-      <input type="text" id="btnVal" placeholder="Command Text"><br>
-      <button class="btn btn-custom" style="width:80%; display:inline-block;" onclick="addCustomUserButton()">+ SAVE BUTTON</button>
-    </div>
-    <div id="customButtonsList" style="margin-top:10px;"></div>
-  </div>
-
   <!-- Modal Login Popup Prompt -->
   <div id="loginModal" class="modal">
     <div class="modal-content">
@@ -214,7 +201,6 @@
     let activePin = "";
     let isAdmin = false;
     let isUserScrolling = false;
-    let editingIndex = -1;
     let map, marker;
     let currentLat = "0.0", currentLon = "0.0";
 
@@ -256,22 +242,18 @@
           badge.innerText = "👨‍💻 ADMIN PROFILE";
           document.getElementById('adminSlidersDiv').style.display = "block";
           document.getElementById('adminConfigCardDiv').style.display = "block";
-          document.getElementById('customMakerTitle').innerText = "Admin Custom Buttons";
         } else {
           badge.className = "profile-badge badge-user";
           badge.innerText = "👤 OWNER PROFILE";
           document.getElementById('adminSlidersDiv').style.display = "none";
           document.getElementById('adminConfigCardDiv').style.display = "none";
-          document.getElementById('customMakerTitle').innerText = "User Custom Buttons";
         }
 
         document.getElementById('mainControlsDiv').style.display = "block";
         document.getElementById('settingsCardDiv').style.display = "block";
         document.getElementById('wifiCardDiv').style.display = "block";
-        document.getElementById('customMakerDiv').style.display = "block";
         closeLoginModal();
 
-        loadCustomButtons();
         sendCloudCmd("login_check");
       }
     }
@@ -290,7 +272,6 @@
       document.getElementById('settingsCardDiv').style.display = "none";
       document.getElementById('adminConfigCardDiv').style.display = "none";
       document.getElementById('wifiCardDiv').style.display = "none";
-      document.getElementById('customMakerDiv').style.display = "none";
     }
 
     /*
@@ -354,95 +335,37 @@
       }
     }
 
-    function openNativeGPS() {
-      if (currentLat === "0.0" || currentLat === "") {
-        alert("Waiting for satellite fix...");
-      } else {
-        window.location.href = `geo:${currentLat},${currentLon}?q=${currentLat},${currentLon}`;
-      }
-    }
-
-    function copyTrackerUrl() {
-      let targetUrl = window.location.href;
-      let textArea = document.createElement('textarea');
-      textArea.value = targetUrl;
-      textArea.style.position = 'fixed';
-      textArea.style.left = '-999999px';
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      try {
-        document.execCommand('copy');
-        alert('Copied Live Tracker Link to Clipboard:\n' + targetUrl);
-      } catch (err) {
-        alert('Copy Failed. Link: ' + targetUrl);
-      }
-      document.body.removeChild(textArea);
-    }
-
     /*
-     * DEVELOPER NOTE: Custom Shortcut Buttons Engine (LocalStorage Synced)
+     * DEVELOPER NOTE: Routing feature using phone's GPS + ESP32 Coordinates
      */
-    function getLocalStorageKey() {
-      return isAdmin ? 'keyless_admin_btns' : 'keyless_user_btns';
-    }
-
-    function loadCustomButtons() {
-      let lsKey = getLocalStorageKey();
-      let btns = JSON.parse(localStorage.getItem(lsKey) || '[]');
-      let div = document.getElementById('customButtonsDiv');
-      let listDiv = document.getElementById('customButtonsList');
+    function openGoogleMapsDirections() {
+      if (currentLat === "0.0" || currentLat === "") {
+        alert("Waiting for vehicle satellite fix...");
+        return;
+      }
       
-      if (div) div.innerHTML = '';
-      if (listDiv) listDiv.innerHTML = '';
-
-      btns.forEach((b, idx) => {
-        if (div) {
-          div.innerHTML += `<button class='btn btn-custom' onclick='sendCloudCmd("${b.val}")'>${b.label}</button>`;
-        }
-        if (listDiv) {
-          listDiv.innerHTML += `<div class='item-row'><span style='font-size:13px;'><b>${b.label}</b> (${b.val})</span><div><button style='background:#f57c00;color:#fff;border:none;border-radius:4px;padding:4px 8px;margin-right:4px;cursor:pointer;' onclick='editCustomUserButton(${idx})'>EDIT</button><button style='background:#d32f2f;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;' onclick='deleteCustomUserButton(${idx})'>X</button></div></div>`;
-        }
-      });
-    }
-
-    function addCustomUserButton() {
-      let l = document.getElementById('btnLabel').value;
-      let v = document.getElementById('btnVal').value;
-      let lsKey = getLocalStorageKey();
-
-      if (l && v) {
-        let btns = JSON.parse(localStorage.getItem(lsKey) || '[]');
-        if (editingIndex >= 0) {
-          btns[editingIndex] = {label: l, val: v};
-          editingIndex = -1;
-        } else {
-          btns.push({label: l, val: v});
-        }
-        localStorage.setItem(lsKey, JSON.stringify(btns));
-        loadCustomButtons();
-        document.getElementById('btnLabel').value = '';
-        document.getElementById('btnVal').value = '';
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((pos) => {
+          let phoneLat = pos.coords.latitude;
+          let phoneLon = pos.coords.longitude;
+          window.open(`https://www.google.com/maps/dir/?api=1&origin=${phoneLat},${phoneLon}&destination=${currentLat},${currentLon}`, '_blank');
+        }, (err) => {
+          window.open(`https://www.google.com/maps/dir/?api=1&destination=${currentLat},${currentLon}`, '_blank');
+        }, { enableHighAccuracy: true, timeout: 5000 });
+      } else {
+        window.open(`https://www.google.com/maps/dir/?api=1&destination=${currentLat},${currentLon}`, '_blank');
       }
     }
 
-    function editCustomUserButton(idx) {
-      let lsKey = getLocalStorageKey();
-      let btns = JSON.parse(localStorage.getItem(lsKey) || '[]');
-      if (btns[idx]) {
-        document.getElementById('btnLabel').value = btns[idx].label;
-        document.getElementById('btnVal').value = btns[idx].val;
-        editingIndex = idx;
-      }
-    }
-
-    function deleteCustomUserButton(idx) {
-      let lsKey = getLocalStorageKey();
-      let btns = JSON.parse(localStorage.getItem(lsKey) || '[]');
-      btns.splice(idx, 1);
-      localStorage.setItem(lsKey, JSON.stringify(btns));
-      loadCustomButtons();
-    }
+    function syncPhoneGps() { 
+      if (navigator.geolocation) { 
+        navigator.geolocation.getCurrentPosition((pos) => { 
+          fetch('/sync_phone_gps?lat=' + pos.coords.latitude + '&lon=' + pos.coords.longitude).catch(e => {}); 
+        }, (err) => {}, { enableHighAccuracy: true, timeout: 5000 }); 
+      } 
+    } 
+    syncPhoneGps(); 
+    setInterval(syncPhoneGps, 15000);
 
     /*
      * DEVELOPER NOTE: Dynamic Telemetry, Toggle Auto-Sync & Rolling Terminal Log Buffer
