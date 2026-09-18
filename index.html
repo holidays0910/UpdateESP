@@ -459,7 +459,7 @@
             let newLatLng = new L.LatLng(lat, lon);
             marker.setLatLng(newLatLng);
             map.panTo(newLatLng);
-            document.getElementById('gpsCoordsText').innerText = `Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)} | Status: ${data.status || 'ONLINE'}`;
+            document.getElementById('gpsCoordsText').innerText = `Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)} | Status: ${data.status || 'ONLINE'} | Last Update: ${data.last_update || 'Waiting...'}`;
           }
           
           document.getElementById('cloudStatus').innerText = `(BAT: ${data.battery || '--'} | UPTIME: ${data.uptime || '--'})`;
@@ -489,6 +489,22 @@
           if (data.web_header !== undefined) document.getElementById('cfg_hdr').value = data.web_header;
           if (data.mdns_name !== undefined) document.getElementById('cfg_mdns').value = data.mdns_name;
           if (data.ap_pass !== undefined) document.getElementById('cfg_ap_pass').value = data.ap_pass;
+
+          // Sync Wi-Fi Slots Data
+          if (data.wf_s1 !== undefined) savedWifiData[0].ssid = data.wf_s1;
+          if (data.wf_p1 !== undefined) savedWifiData[0].pass = data.wf_p1;
+          if (data.wf_s2 !== undefined) savedWifiData[1].ssid = data.wf_s2;
+          if (data.wf_p2 !== undefined) savedWifiData[1].pass = data.wf_p2;
+          if (data.wf_s3 !== undefined) savedWifiData[2].ssid = data.wf_s3;
+          if (data.wf_p3 !== undefined) savedWifiData[2].pass = data.wf_p3;
+          if (data.wf_s4 !== undefined) savedWifiData[3].ssid = data.wf_s4;
+          if (data.wf_p4 !== undefined) savedWifiData[3].pass = data.wf_p4;
+          if (data.wf_s5 !== undefined) savedWifiData[4].ssid = data.wf_s5;
+          if (data.wf_p5 !== undefined) savedWifiData[4].pass = data.wf_p5;
+
+          // Trigger display update for the currently selected slot
+          let currentSlot = document.getElementById('wifiSlotSelect').value;
+          updateWifiInputs(currentSlot);
         }
       }).catch(err => {});
 
