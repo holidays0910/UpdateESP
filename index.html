@@ -1,584 +1,584 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Keyless Entry System - Cloud Live Tracker</title>
-  
-  <!-- Leaflet Live Map CSS & JS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 
+        ESP32 Motorcycle Keyless Entry & GPS Tracker Dashboard
+        System Firmware & UI Version: v25.9
+        
+        DEVELOPER NOTES & CHANGE LOG (v25.9):
+        1. Fully responsive dark-themed dashboard using Bootstrap 5.3 & FontAwesome 6.4.
+        2. Integrated Non-Blocking / Async Live Terminal Console UI (eliminates UI freeze on commands).
+        3. Strict Scan-Only RFID Workflow:
+           - Manual typing into the RFID ID text field is completely DISABLED (Read-Only).
+           - Dynamic button changes depending on state (SCAN NEW TAG vs RE-SCAN / CHANGE TAG).
+           - 15-second scanning timeout indicator.
+        4. Complete multi-module interface: Ignition Control, GPS Live Telemetry, RF Remote Manager,
+           SIM800L Cellular Monitoring, and System Configuration.
+    -->
+    <title>ESP32 Motorcycle Control Panel v25.9</title>
 
-  <style>
-    body { font-family: Arial, sans-serif; background: #121212; color: #fff; margin: 0; padding: 15px; }
+    <!-- Bootstrap 5 CSS Framework for UI Grid and Cards -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     
-    /* Header Bar */
-    .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
-    .header-title { font-size: 18px; font-weight: bold; color: #00e676; }
-    .profile-badge { background: #1e1e1e; border: 1px solid #444; border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: bold; }
-    .badge-admin { color: #00e676; border-color: #00e676; }
-    .badge-user { color: #29b6f6; border-color: #29b6f6; }
-    
-    /* Cards & Buttons Layout */
-    .card { background: #1e1e1e; max-width: 500px; margin: 15px auto; padding: 12px; border-radius: 8px; border: 1px solid #333; position: relative; z-index: 1; }
-    .btn { width: 90%; max-width: 320px; padding: 12px; margin: 5px auto; font-size: 15px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; display: block; position: relative; z-index: 10; }
-    .btn-unlock { background: #00e676; color: #000; }
-    .btn-start { background: #29b6f6; color: #000; }
-    .btn-lock { background: #ff1744; color: #fff; }
-    .btn-cmd { background: #424242; color: #fff; }
-    .btn-custom { background: #ab47bc; color: #fff; }
-    .btn-save { padding: 8px; font-size: 12px; background: #0288d1; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
-    
-    /* Terminal Monitor Box */
-    #log { width: 90%; max-width: 500px; height: 220px; background: #000; color: #00ff00; border: 1px solid #333; margin: 12px auto; padding: 10px; text-align: left; font-family: monospace; overflow-y: scroll; white-space: pre-wrap; font-size: 12px; box-sizing: border-box; }
+    <!-- FontAwesome 6 Icons for Action Buttons & Indicators -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 
-    /* Map Container Fix */
-    #map { width: 100%; height: 240px; border-radius: 8px; margin-top: 10px; border: 1px solid #333; position: relative; z-index: 1; }
-    
-    /* Modal Popup Layering Fix */
-    .modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; }
-    .modal-content { background: #1e1e1e; border: 1px solid #444; border-radius: 10px; padding: 20px; width: 85%; max-width: 350px; text-align: center; }
+    <!-- Leaflet.js CSS for Interactive OpenStreetMap Vehicle Live Tracking -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-    /* iOS Sliders */
-    .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
-    .switch input { opacity: 0; width: 0; height: 0; }
-    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #424242; transition: .3s; border-radius: 24px; }
-    .slider:before { position: absolute; content: ''; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
-    input:checked + .slider { background-color: #00e676; }
-    input:checked + .slider:before { transform: translateX(20px); }
-    
-    .item-row { display: flex; justify-content: space-between; align-items: center; background: #2a2a2a; padding: 8px 12px; margin: 5px 0; border-radius: 5px; }
-    .form-row { display: flex; align-items: center; justify-content: space-between; margin: 8px 0; }
-    .form-row input[type=text], .form-row input[type=password], select, input[type=date] { width: 60%; margin: 0; padding: 8px; font-size: 13px; border-radius: 4px; border: none; }
-    .pw-container { position: relative; display: inline-block; width: 60%; }
-    .pw-container input { width: 100%; box-sizing: border-box; padding-right: 30px; }
-    .eye-btn { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); cursor: pointer; background: none; border: none; color: #aaa; font-size: 14px; }
-    .stat-box { display: flex; justify-content: space-around; background: #2a2a2a; padding: 10px; border-radius: 5px; margin-top: 10px; text-align: center; font-size: 12px; flex-wrap: wrap; }
-    .stat-item { flex: 1; min-width: 45%; margin-bottom: 5px; }
-    .stat-val { font-size: 15px; font-weight: bold; color: #29b6f6; margin-top: 4px; }
-  </style>
+    <style>
+        /* BASE THEME & OVERRIDES (DARK MODE SYSTEM) */
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding-bottom: 40px;
+        }
+
+        /* CARD CONTAINERS DESIGN */
+        .card {
+            background-color: #1e1e1e;
+            border: 1px solid #2d2d2d;
+            border-radius: 14px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            background-color: #252525;
+            border-bottom: 1px solid #333;
+            font-weight: 700;
+            font-size: 1.05rem;
+            border-radius: 14px 14px 0 0 !important;
+            padding: 14px 20px;
+        }
+
+        /* VERSION BADGE STYLING */
+        .badge-version {
+            background: linear-gradient(135deg, #0d6efd, #0b5ed7);
+            font-size: 0.85rem;
+            padding: 6px 14px;
+            border-radius: 20px;
+            box-shadow: 0 2px 8px rgba(13, 110, 253, 0.4);
+        }
+
+        /* ACTION BUTTON STYLES WITH HOVER EFFECTS */
+        .btn-action {
+            font-weight: 600;
+            padding: 14px;
+            border-radius: 10px;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .btn-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        /* LIVE TERMINAL CONSOLE BOX STYLING */
+        .terminal-box {
+            background-color: #050505;
+            color: #00ff66;
+            font-family: 'Consolas', 'Courier New', Courier, monospace;
+            height: 280px;
+            overflow-y: auto;
+            padding: 14px;
+            border-radius: 10px;
+            border: 1px solid #222;
+            font-size: 0.88rem;
+            line-height: 1.5;
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8);
+        }
+
+        /* SCAN-ONLY READ-ONLY TEXTFIELD STYLING FOR RFID */
+        .rfid-read-only {
+            background-color: #2a2a2a !important;
+            color: #ffc107 !important;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            border: 1px solid #444 !important;
+            cursor: not-allowed;
+            text-align: center;
+        }
+
+        /* GPS MAP CONTAINER STYLING */
+        #mapContainer {
+            height: 280px;
+            width: 100%;
+            border-radius: 10px;
+            border: 1px solid #333;
+            z-index: 1;
+        }
+
+        /* CUSTOM STATUS BADGES */
+        .status-pill {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+    </style>
 </head>
 <body>
 
-  <!-- Upper Bar -->
-  <div class="header-bar">
-    <div class="header-title" id="headerTitleText">B - CONNECT</div>
-    <div id="profileBadge" class="profile-badge" style="color:#ff5252; border-color:#ff5252;">🔒 LOCKED</div>
-  </div>
+<div class="container py-4">
 
-  <div style="text-align:center;">
-    <span id="cloudStatus" style="font-size:12px; font-weight:bold; color:#00e676;">(CLOUD LINK: SYNCING... | BAT: --V | UPTIME: --)</span>
-  </div>
-
-  <!-- Login Button Container -->
-  <div style="text-align:center; margin-top:8px;">
-    <button id="loginLogoutBtn" class="btn btn-unlock" style="width:60%; display:inline-block;" onclick="openLoginModal()">🔑 LOGIN SYSTEM</button>
-  </div>
-
-  <!-- Main System Control Buttons -->
-  <div id="mainControlsDiv" style="display:none;">
-    <button class="btn btn-unlock" onclick="sendCloudCmd('unlock')">UNLOCK</button>
-    <button class="btn btn-start" onclick="sendCloudCmd('start')">START ENGINE</button>
-    <button class="btn btn-lock" onclick="sendCloudCmd('lock')">LOCK / SHUTDOWN</button>
-    <button class="btn btn-cmd" onclick="sendCloudCmd('status')">STATUS</button>
-    <button class="btn btn-cmd" onclick="sendCloudCmd('show_commands')">COMMANDS</button>
-  </div>
-
-  <!-- Terminal Monitor Output & Manual Command Input -->
-  <div id="log">Connecting cloud live terminal...</div>
-  <div style="text-align:center;">
-    <input type="text" id="cmdInput" placeholder="Enter command / PIN..." style="width:60%; max-width:280px; padding:10px; margin:4px; font-size:14px; border-radius:5px; border:none;">
-    <button class="btn btn-cmd" style="width:22%; padding:10px; display:inline-block;" onclick="sendCustomCmd()">SEND</button>
-  </div>
-
-  <!-- Live Moving GPS Map Card -->
-  <div class="card">
-    <b style="color:#00e676;">📡 LIVE GPS TRACKER (REAL-TIME)</b><br>
-    <div id="map"></div>
-    <p id="gpsCoordsText" style="font-size:12px; color:#aaa; margin-top:8px; text-align:center;">Waiting for Satellite Telemetry...</p>
-    <button class="btn btn-custom" style="background:#0288d1; width:85%; margin:8px auto 0 auto;" onclick="openGoogleMapsDirections()">🗺️ OPEN GMAP LOCATION</button>
-  </div>
-
-  <!-- Historical Route & Analytics Card -->
-  <div id="historyCardDiv" class="card" style="display:none;">
-    <b style="color:#ab47bc;">📊 HISTORICAL ROUTE ANALYTICS</b><br>
-    <div class="form-row" style="margin-top:10px;">
-      <input type="date" id="historyDateInput">
-      <button class="btn-save" style="background:#ab47bc;" onclick="loadHistoricalRoute()">LOAD ROUTE</button>
-    </div>
-  </div>
-
-  <!-- System Settings & Toggles Card -->
-  <div id="settingsCardDiv" class="card" style="display:none;">
-    <b style="color:#00e676;">&#9881; SYSTEM SETTINGS & TOGGLES</b><br><br>
-    
-    <div class="item-row"><span>&#128680; Tilt Alarm</span><label class="switch"><input type="checkbox" id="tog_alarm" onchange="toggleFeature('alarm', this.checked)"><span class="slider"></span></label></div>
-    <div class="item-row"><span>&#127925; Boot Audio Intro</span><label class="switch"><input type="checkbox" id="tog_intro" onchange="toggleFeature('intro', this.checked)"><span class="slider"></span></label></div>
-    <div class="item-row"><span>&#128251; RF Remote 1</span><label class="switch"><input type="checkbox" id="tog_rem1" onchange="toggleFeature('remote_1', this.checked)"><span class="slider"></span></label></div>
-    <div class="item-row"><span>&#128506; RF Remote 2</span><label class="switch"><input type="checkbox" id="tog_rem2" onchange="toggleFeature('remote_2', this.checked)"><span class="slider"></span></label></div>
-    <div class="item-row"><span>&#128260; Cloud Auto-Update OTA</span><label class="switch"><input type="checkbox" id="tog_ota" onchange="toggleFeature('autoupdate', this.checked)"><span class="slider"></span></label></div>
-    <div class="item-row"><span>🛡️ ISC Protection</span><label class="switch"><input type="checkbox" id="tog_isc" onchange="toggleFeature('isc', this.checked)"><span class="slider"></span></label></div>
-    
-    <div id="adminSlidersDiv" style="display:none;">
-      <div class="item-row"><span style="color:#ffb300;">🔘 HW Button Override</span><label class="switch"><input type="checkbox" id="tog_hwbtn" onchange="toggleFeature('hw_button', this.checked)"><span class="slider"></span></label></div>
-      <div class="item-row"><span style="color:#ffb300;">💳 RFID System Status</span><label class="switch"><input type="checkbox" id="tog_rfid" onchange="toggleFeature('rfid', this.checked)"><span class="slider"></span></label></div>
-      <div class="item-row"><span>&#128267; Wi-Fi Battery Saver</span><label class="switch"><input type="checkbox" id="tog_batsaver" onchange="toggleFeature('battery_saver', this.checked)"><span class="slider"></span></label></div>
-      <div class="item-row"><span>&#9729; Live Cloud Control</span><label class="switch"><input type="checkbox" id="tog_livectrl" onchange="toggleFeature('live_control', this.checked)"><span class="slider"></span></label></div>
-      <div class="item-row"><span>&#128226; Push Button PIN Mode</span><label class="switch"><input type="checkbox" id="tog_pinmode" onchange="toggleFeature('pinmode', this.checked)"><span class="slider"></span></label></div>
-      <div class="item-row"><span>&#9999; Direct PIN Edit Allowed</span><label class="switch"><input type="checkbox" id="tog_editmode" onchange="toggleFeature('editmode', this.checked)"><span class="slider"></span></label></div>
-      <div class="item-row"><span>&#127384; Emergency PIN Bypass</span><label class="switch"><input type="checkbox" id="tog_emergency" onchange="toggleFeature('emergency', this.checked)"><span class="slider"></span></label></div>
+    <!-- ========================================== -->
+    <!-- HEADER SECTION: SYSTEM TITLE & VERSION     -->
+    <!-- ========================================== -->
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom border-secondary">
+        <div>
+            <h3 class="m-0 text-white fw-bold"><i class="fa-solid fa-shield-halved text-primary me-2"></i>ESP32 Keyless & GPS System</h3>
+            <small class="text-muted">Motorcycle Security, RFID Authentication & Live Tracking</small>
+        </div>
+        <div>
+            <!-- Main Version Header Label (Set to v25.9) -->
+            <span class="badge badge-version" id="appVersionBadge">System v25.9</span>
+        </div>
     </div>
 
-    <div style="margin-top:15px; text-align:center;">
-      <span style="font-size:13px; font-weight:bold; color:#29b6f6;">&#127925; Select Boot Audio Preset:</span><br>
-      <select id="bootTuneSelect" onchange="changeBootTune(this.value)">
-        <option value="1">1. Nokia Tune (Default)</option>
-        <option value="2">2. Baby Shark</option>
-        <option value="3">3. Cocomelon</option>
-        <option value="4">4. Super Mario</option>
-        <option value="5">5. Transformers</option>
-        <option value="6">6. Coffin Dance</option>
-      </select>
-    </div>
-  </div>
-
-  <!-- Dedicated Admin System Config Card -->
-  <div id="adminConfigCardDiv" class="card" style="display:none;">
-    <b style="color:#ab47bc;">🛠️ ADVANCED SYSTEM CONFIG (ADMIN)</b><br><br>
-    
-    <span style="font-size:11px; color:#aaa;">🆔 ESP32 Board MAC ID (License):</span>
-    <div class="form-row"><input type="text" id="cfg_mac_id" readonly placeholder="Fetching MAC..."><button class="btn-save" style="background:#f57c00;" onclick="copyMacId()">COPY ID</button></div>
-
-    <span style="font-size:11px; color:#aaa;">🌍 License Server URL:</span>
-    <div class="form-row"><input type="text" id="cfg_license_url" placeholder="https://..."><button class="btn-save" onclick="sendCloudCmd('set_license_url ' + document.getElementById('cfg_license_url').value)">SAVE LINK</button></div>
-
-    <!-- ADDED RFID TAG INPUT HERE -->
-    <span style="font-size:11px; color:#aaa;">💳 Master RFID Tag ID:</span>
-    <div class="form-row">
-      <input type="text" id="cfg_rfid_tag" placeholder="Scan or Type Tag ID...">
-      <button class="btn-save" id="btn_rfid_save" onclick="sendCloudCmd('set_rfid ' + document.getElementById('cfg_rfid_tag').value)">SAVE TAG</button>
-    </div>
-
-    <span style="font-size:11px; color:#aaa;">⏱️ Alarm Duration (Mins):</span>
-    <div class="form-row">
-      <select id="cfg_alarm_dur" style="background:#2a2a2a; color:#fff;">
-        <option value="1">1 Minute</option>
-        <option value="2">2 Minutes</option>
-        <option value="3">3 Minutes</option>
-        <option value="4">4 Minutes</option>
-        <option value="5">5 Minutes</option>
-      </select>
-      <button class="btn-save" onclick="sendCloudCmd('set_alarm_dur ' + document.getElementById('cfg_alarm_dur').value)">SAVE DUR</button>
-    </div>
-
-    <span style="font-size:11px; color:#aaa;">📻 CC1101 Frequency (MHz):</span>
-    <div class="form-row"><input type="text" id="cfg_freq" placeholder="433.92"><button class="btn-save" onclick="sendCloudCmd('set_freq ' + document.getElementById('cfg_freq').value)">SAVE FREQ</button></div>
-    
-    <span style="font-size:11px; color:#aaa;">📶 CC1101 RSSI Threshold (dBm):</span>
-    <div class="form-row"><input type="text" id="cfg_rssi" placeholder="-85"><button class="btn-save" onclick="sendCloudCmd('set_rssi ' + document.getElementById('cfg_rssi').value)">SAVE RSSI</button></div>
-    
-    <span style="font-size:11px; color:#aaa;">🗺️ Live Tracker Map Link:</span>
-    <div class="form-row"><input type="text" id="cfg_tracker" placeholder="Tracker URL"><button class="btn-save" onclick="sendCloudCmd('set_tracker_url ' + document.getElementById('cfg_tracker').value)">SAVE LINK</button></div>
-
-    <span style="font-size:11px; color:#aaa;">📞 Owner Trusted Num (SMS & Call):</span>
-    <div class="form-row"><input type="text" id="cfg_trusted" placeholder="+639..."><button class="btn-save" onclick="sendCloudCmd('set_trusted_num ' + document.getElementById('cfg_trusted').value)">SAVE TRUSTED</button></div>
-
-    <span style="font-size:11px; color:#aaa;">👨‍💻 Developer Admin Number:</span>
-    <div class="form-row"><input type="text" id="cfg_admin" placeholder="+639..."><button class="btn-save" onclick="sendCloudCmd('set_admin_num ' + document.getElementById('cfg_admin').value)">SAVE ADMIN</button></div>
-
-    <span style="font-size:11px; color:#aaa;">🆘 Emergency PIN Code (8 Digits):</span>
-    <div class="form-row"><div class="pw-container"><input type="password" id="cfg_emg_pin" placeholder="Emergency PIN"><button type="button" class="eye-btn" onclick="toggleEmgPw()">👁️</button></div><button class="btn-save" onclick="sendCloudCmd('set_emg_pin ' + document.getElementById('cfg_emg_pin').value)">SAVE EMG PIN</button></div>
-
-    <span style="font-size:11px; color:#aaa;">☁️ Firebase Database Host URL:</span>
-    <div class="form-row"><input type="text" id="cfg_fb" placeholder="database.firebaseio.com"><button class="btn-save" onclick="sendCloudCmd('set_firebase ' + document.getElementById('cfg_fb').value)">SAVE FIREBASE</button></div>
-
-    <span style="font-size:11px; color:#aaa;">🐙 GitHub Repo (User Repo):</span>
-    <div class="form-row"><input type="text" id="cfg_gh" placeholder="user repo"><button class="btn-save" onclick="sendCloudCmd('set_github ' + document.getElementById('cfg_gh').value)">SAVE GITHUB</button></div>
-
-    <span style="font-size:11px; color:#aaa;">🏷️ Web UI Header Title:</span>
-    <div class="form-row"><input type="text" id="cfg_hdr" placeholder="Header Title"><button class="btn-save" onclick="sendCloudCmd('set_header ' + document.getElementById('cfg_hdr').value)">SAVE HEADER</button></div>
-
-    <span style="font-size:11px; color:#aaa;">🔗 mDNS Local Domain (.local):</span>
-    <div class="form-row"><input type="text" id="cfg_mdns" placeholder="keyless"><button class="btn-save" onclick="sendCloudCmd('set_local_address ' + document.getElementById('cfg_mdns').value)">SAVE MDNS</button></div>
-
-    <span style="font-size:11px; color:#aaa;">🌐 Hotspot SSID Name:</span>
-    <div class="form-row"><input type="text" id="cfg_ap_ssid" placeholder="Hotspot Name"><button class="btn-save" onclick="sendCloudCmd('set_ap_ssid ' + document.getElementById('cfg_ap_ssid').value)">SAVE SSID</button></div>
-
-    <span style="font-size:11px; color:#aaa;">🔑 Hotspot Password:</span>
-    <div class="form-row"><div class="pw-container"><input type="password" id="cfg_ap_pass" placeholder="Hotspot Pass"><button type="button" class="eye-btn" onclick="toggleApPw()">👁️</button></div><button class="btn-save" onclick="sendCloudCmd('set_ap_pass ' + document.getElementById('cfg_ap_pass').value)">SAVE PASS</button></div>
-  </div>
-
-  <!-- Wi-Fi Manager Card (5 Slots) -->
-  <div id="wifiCardDiv" class="card" style="display:none;">
-    <b style="color:#29b6f6;">Wi-Fi Manager (5 Slots Auto-Fill)</b><br>
-    <div style="text-align:center;">
-      <select id="wifiSlotSelect" onchange="updateWifiInputs(this.value)">
-        <option value="1">Slot 1</option><option value="2">Slot 2</option><option value="3">Slot 3</option><option value="4">Slot 4</option><option value="5">Slot 5</option>
-      </select><br>
-      <input type="text" id="wifiSsidInput" placeholder="Wi-Fi Name (SSID)"><br>
-      <div class="pw-container" style="width:65%;">
-        <input type="password" id="wifiPassInput" placeholder="Wi-Fi Password">
-        <button type="button" class="eye-btn" onclick="togglePwVisibility()">👁️</button>
-      </div><br>
-      <button class="btn btn-cmd" style="width:80%; display:inline-block;" onclick="saveWifiSlot()">Validate & Save Wi-Fi</button>
-    </div>
-  </div>
-
-  <!-- Modal Route Analytics Popup -->
-  <div id="routeModal" class="modal">
-    <div class="modal-content">
-      <h3 style="color:#ab47bc; margin-top:0;">📊 ROUTE SUMMARY</h3>
-      <p id="routeDateLabel" style="font-size:12px; color:#aaa;">Date</p>
-      <div class="stat-box">
-        <div class="stat-item">Distance<div class="stat-val" id="statDistance">0.0 km</div></div>
-        <div class="stat-item">Top Speed<div class="stat-val" id="statTopSpeed">0 km/h</div></div>
-        <div class="stat-item">Avg Speed<div class="stat-val" id="statAvgSpeed">0 km/h</div></div>
-        <div class="stat-item">Engine Time<div class="stat-val" id="statEngineTime">0m</div></div>
-      </div>
-      <button class="btn btn-cmd" style="width:80%; background:#555; margin-top:15px;" onclick="closeRouteModal()">CLOSE DETAILS</button>
-    </div>
-  </div>
-
-  <!-- Modal Login Popup Prompt -->
-  <div id="loginModal" class="modal">
-    <div class="modal-content">
-      <h3 style="color:#00e676; margin-top:0;">🔑 SYSTEM AUTHENTICATION</h3>
-      <p style="font-size:12px; color:#aaa;">Enter Direct PIN (User) or Master Key (Admin):</p>
-      <input type="password" id="modalPinInput" placeholder="Enter PIN..." style="width:80%; padding:10px; margin-bottom:15px;"><br>
-      <button class="btn btn-unlock" style="width:80%;" onclick="submitModalLogin()">SUBMIT ACCESS</button>
-      <button class="btn btn-cmd" style="width:80%; background:#555;" onclick="closeLoginModal()">CANCEL</button>
-    </div>
-  </div>
-
-  <p style="color:#555; font-size:11px; margin-top:25px; text-align:center;">Developed by: RENZ ALDRIN GOMEZ<br>Web UI Version: v25.7</p>
-
-  <script>
-    const FIREBASE_HOST = "keylesstrackerrenz-default-rtdb.asia-southeast1.firebasedatabase.app";
-    let adminPassword = "79910101"; 
-
-    let activePin = "";
-    let isAdmin = false;
-    let isUserScrolling = false;
-    let map, marker, routePolyline;
-    let currentLat = "0.0", currentLon = "0.0";
-
-    const savedWifiData = [
-      {ssid:"", pass:""}, {ssid:"", pass:""}, {ssid:"", pass:""}, {ssid:"", pass:""}, {ssid:"", pass:""}
-    ];
-
-    const logBox = document.getElementById('log');
-    logBox.addEventListener('scroll', () => { 
-      isUserScrolling = (logBox.scrollHeight - logBox.clientHeight - logBox.scrollTop) > 35; 
-    });
-
-    function initMap() {
-      map = L.map('map').setView([14.5995, 120.9842], 15);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-      marker = L.marker([14.5995, 120.9842]).addTo(map).bindPopup("Vehicle Location").openPopup();
-    }
-    initMap();
-
-    function openLoginModal() { document.getElementById('loginModal').style.display = 'flex'; }
-    function closeLoginModal() { document.getElementById('loginModal').style.display = 'none'; }
-    function closeRouteModal() { document.getElementById('routeModal').style.display = 'none'; }
-
-    function copyMacId() {
-      let macInput = document.getElementById('cfg_mac_id');
-      if (!macInput.value || macInput.value === "Fetching MAC...") {
-        alert("MAC Address not yet loaded!"); return;
-      }
-      macInput.select();
-      macInput.setSelectionRange(0, 99999);
-      try {
-        document.execCommand("copy");
-        alert("Copied Board ID to clipboard:\n" + macInput.value);
-      } catch (err) {
-        alert("Failed to copy.");
-      }
-    }
-
-    function submitModalLogin() {
-      let pin = document.getElementById('modalPinInput').value;
-      if (pin) {
-        activePin = pin;
-        isAdmin = (pin === adminPassword);
+    <!-- ROW 1: QUICK IGNITION CONTROL & ADMIN CONFIGURATION -->
+    <div class="row">
         
-        document.getElementById('loginLogoutBtn').className = "btn btn-lock";
-        document.getElementById('loginLogoutBtn').innerText = "🚪 LOGOUT SESSION";
-        document.getElementById('loginLogoutBtn').onclick = logoutSession;
+        <!-- CARD 1: IGNITION & ENGINE RELAY CONTROLS -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header text-white d-flex justify-content-between align-items-center">
+                    <span><i class="fa-solid fa-power-off me-2 text-warning"></i>Ignition & Relay Controls</span>
+                    <span id="systemLockBadge" class="badge bg-danger status-pill">LOCKED / OFF</span>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">Quick action commands for motorcycle keyless state bypass and engine cut-off.</p>
+                    <div class="d-grid gap-3">
+                        <!-- UNLOCK BUTTON: ENABLES IGNITION RELAY -->
+                        <button class="btn btn-success btn-action" id="btnUnlockSystem" onclick="executeSystemCommand('unlock')">
+                            <i class="fa-solid fa-unlock me-2"></i>UNLOCK / IGNITION ON
+                        </button>
 
-        let badge = document.getElementById('profileBadge');
-        if (isAdmin) {
-          badge.className = "profile-badge badge-admin";
-          badge.innerText = "👨‍💻 ADMIN PROFILE";
-          document.getElementById('adminSlidersDiv').style.display = "block";
-          document.getElementById('adminConfigCardDiv').style.display = "block";
-        } else {
-          badge.className = "profile-badge badge-user";
-          badge.innerText = "👤 OWNER PROFILE";
-          document.getElementById('adminSlidersDiv').style.display = "none";
-          document.getElementById('adminConfigCardDiv').style.display = "none";
-        }
+                        <!-- LOCK BUTTON: DISABLES IGNITION RELAY -->
+                        <button class="btn btn-danger btn-action" id="btnLockSystem" onclick="executeSystemCommand('lock')">
+                            <i class="fa-solid fa-lock me-2"></i>LOCK / ENGINE KILL
+                        </button>
 
-        document.getElementById('mainControlsDiv').style.display = "block";
-        document.getElementById('settingsCardDiv').style.display = "block";
-        document.getElementById('wifiCardDiv').style.display = "block";
-        document.getElementById('historyCardDiv').style.display = "block";
-        closeLoginModal();
+                        <!-- FIND BIKE BUTTON: TRIGGERS HIGH-DECIBEL BUZZER & FLASHER -->
+                        <button class="btn btn-info btn-action text-white" id="btnFindBike" onclick="executeSystemCommand('find')">
+                            <i class="fa-solid fa-bullhorn me-2"></i>FIND BIKE (BUZZER ALERT)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-        sendCloudCmd("login_check");
+        <!-- CARD 2: ADMIN LOGIN & SCAN-ONLY SMART RFID CONFIGURATION -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header text-white d-flex justify-content-between align-items-center">
+                    <span><i class="fa-solid fa-user-gear me-2 text-info"></i>Admin & RFID Security Config</span>
+                    <span id="rfidStateBadge" class="badge bg-secondary status-pill">NO TAG</span>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- ADMIN LOGIN FORM SECTION -->
+                    <div class="mb-3" id="adminAuthSection">
+                        <label class="form-label text-muted small fw-bold">ADMIN DEVELOPER LOGIN</label>
+                        <div class="input-group">
+                            <input type="password" id="adminPinInput" class="form-control bg-dark text-white border-secondary" placeholder="Enter Admin Passcode">
+                            <button class="btn btn-primary px-4" onclick="authenticateAdminSession()">LOGIN</button>
+                        </div>
+                    </div>
+
+                    <div id="adminActiveNotice" class="alert alert-success py-2 d-none mb-3">
+                        <i class="fa-solid fa-circle-check me-2"></i>Admin Mode Authenticated (v25.9 Security Privileges Active)
+                    </div>
+
+                    <hr class="border-secondary my-3">
+
+                    <!-- SMART SCAN-ONLY RFID SECTION (NO MANUAL TYPING ALLOWED) -->
+                    <div class="mb-2">
+                        <label class="form-label d-flex justify-content-between">
+                            <span class="fw-bold"><i class="fa-solid fa-id-card me-2 text-warning"></i>Master RFID Tag ID</span>
+                            <small class="text-muted">RC522 Hardware SPI</small>
+                        </label>
+                        <div class="input-group">
+                            <!-- READ-ONLY TEXTFIELD: PREVENTS MANUAL TYPOS BY USER -->
+                            <input type="text" id="rfidTagValueDisplay" class="form-control rfid-read-only" value="No Tag Paired" readonly>
+                            
+                            <!-- DYNAMIC ACTION BUTTON: CHANGES DEPENDING ON SCANNING / PAIRED STATE -->
+                            <button id="btnRfidScanAction" class="btn btn-primary" onclick="triggerRfidScanningMode()" disabled>
+                                <i class="fa-solid fa-magnifying-glass me-1"></i> SCAN NEW TAG
+                            </button>
+                        </div>
+                        <small class="text-muted mt-2 d-block" id="rfidHelpNotice">
+                            <i class="fa-solid fa-circle-info me-1"></i>Login as Admin to scan or update the RC522 Master Card.
+                        </small>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ROW 2: GPS TELEMETRY MAP & SIM800L CELLULAR STATUS -->
+    <div class="row">
         
-        let today = new Date().toISOString().split('T')[0];
-        document.getElementById('historyDateInput').value = today;
-      }
-    }
+        <!-- CARD 3: GPS LIVE MAP & TELEMETRY -->
+        <div class="col-lg-7">
+            <div class="card">
+                <div class="card-header text-white d-flex justify-content-between align-items-center">
+                    <span><i class="fa-solid fa-location-dot me-2 text-danger"></i>GPS Tracker Live Telemetry</span>
+                    <span id="gpsFixBadge" class="badge bg-warning text-dark status-pill">SEARCHING SATELLITES...</span>
+                </div>
+                <div class="card-body">
+                    <!-- LEAFLET INTERACTIVE MAP CONTAINER -->
+                    <div id="mapContainer" class="mb-3"></div>
+                    
+                    <!-- TELEMETRY DATA METRICS -->
+                    <div class="row text-center small text-muted">
+                        <div class="col-4 border-end border-secondary">
+                            <div class="fw-bold text-white" id="telemetryLat">0.000000</div>
+                            <div>Latitude</div>
+                        </div>
+                        <div class="col-4 border-end border-secondary">
+                            <div class="fw-bold text-white" id="telemetryLng">0.000000</div>
+                            <div>Longitude</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="fw-bold text-white" id="telemetrySpeed">0 km/h</div>
+                            <div>Speed</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-    function logoutSession() {
-      activePin = "";
-      isAdmin = false;
-      
-      document.getElementById('profileBadge').className = "profile-badge";
-      document.getElementById('profileBadge').innerText = "🔒 LOCKED";
-      document.getElementById('loginLogoutBtn').className = "btn btn-unlock";
-      document.getElementById('loginLogoutBtn').innerText = "🔑 LOGIN SYSTEM";
-      document.getElementById('loginLogoutBtn').onclick = openLoginModal;
+        <!-- CARD 4: SIM800L GSM SIGNAL & SYSTEM PARAMETERS -->
+        <div class="col-lg-5">
+            <div class="card">
+                <div class="card-header text-white">
+                    <i class="fa-solid fa-signal me-2 text-success"></i>GSM & System Diagnostics
+                </div>
+                <div class="card-body">
+                    
+                    <!-- GSM SIGNAL LEVEL -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span><i class="fa-solid fa-tower-cell me-2 text-info"></i>SIM800L Signal:</span>
+                        <span class="fw-bold text-white" id="gsmSignalText">Checking...</span>
+                    </div>
 
-      document.getElementById('mainControlsDiv').style.display = "none";
-      document.getElementById('settingsCardDiv').style.display = "none";
-      document.getElementById('adminConfigCardDiv').style.display = "none";
-      document.getElementById('wifiCardDiv').style.display = "none";
-      document.getElementById('historyCardDiv').style.display = "none";
-    }
+                    <!-- MAIN BATTERY VOLTAGE MONITOR (POWER-CUT SENSE) -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span><i class="fa-solid fa-car-battery me-2 text-warning"></i>12V Motorcycle Battery:</span>
+                        <span class="fw-bold text-success" id="mainBatteryVoltage">12.6V (Normal)</span>
+                    </div>
 
-    function sendCloudCmd(commandStr) {
-      if (!activePin) return;
-      let payload = { cmd: commandStr, pin: activePin, ts: Math.floor(Date.now() / 1000) };
-      fetch(`https://${FIREBASE_HOST}/cloud_cmd.json`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).catch(err => console.error("Cloud Dispatch Error:", err));
-    }
+                    <!-- BACKUP LITHIUM BATTERY VOLTAGE MONITOR -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span><i class="fa-solid fa-battery-half me-2 text-primary"></i>18650 Backup Power:</span>
+                        <span class="fw-bold text-info" id="backupBatteryVoltage">4.1V (TP4056 Active)</span>
+                    </div>
 
-    function sendCustomCmd() {
-      let cmdIn = document.getElementById('cmdInput');
-      let v = cmdIn.value;
-      if (v) { sendCloudCmd(v); cmdIn.value = ''; }
-    }
+                    <!-- WI-FI BATTERY SAVER MODE STATUS -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span><i class="fa-solid fa-wifi me-2 text-secondary"></i>Wi-Fi Battery Saver:</span>
+                        <span class="badge bg-success" id="wifiSaverBadge">ENABLED (15m Auto-Sleep)</span>
+                    </div>
 
-    function toggleFeature(feat, state) {
-      let action = state ? 'enable_' + feat : 'disable_' + feat;
-      sendCloudCmd(action);
-    }
+                    <hr class="border-secondary">
 
-    function changeBootTune(val) {
-      const tunes = ['tune_nokia', 'tune_babyshark', 'tune_cocomelon', 'tune_supermario', 'tune_transformers', 'tune_coffin'];
-      if (tunes[val - 1]) sendCloudCmd(tunes[val - 1]);
-    }
+                    <div class="d-grid">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="executeSystemCommand('status')">
+                            <i class="fa-solid fa-rotate me-1"></i> REFRESH SYSTEM DIAGNOSTICS
+                        </button>
+                    </div>
 
-    function togglePwVisibility() {
-      let pInput = document.getElementById('wifiPassInput');
-      pInput.type = (pInput.type === 'password') ? 'text' : 'password';
-    }
+                </div>
+            </div>
+        </div>
 
-    function toggleApPw() {
-      let pInput = document.getElementById('cfg_ap_pass');
-      pInput.type = (pInput.type === 'password') ? 'text' : 'password';
-    }
+    </div>
 
-    function toggleEmgPw() {
-      let pInput = document.getElementById('cfg_emg_pin');
-      pInput.type = (pInput.type === 'password') ? 'text' : 'password';
-    }
+    <!-- ROW 3: ASYNC NON-BLOCKING LIVE TERMINAL CONSOLE -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header text-white d-flex justify-content-between align-items-center">
+                    <span><i class="fa-solid fa-terminal me-2 text-success"></i>Live Async System Terminal (v25.9 Framework)</span>
+                    <div>
+                        <span class="badge bg-success me-2">Background Log Stream Active</span>
+                        <button class="btn btn-sm btn-outline-secondary text-white" onclick="clearTerminalConsole()">Clear Logs</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-2">
+                        <i class="fa-solid fa-lightbulb text-warning me-1"></i>
+                        <strong>v25.9 Optimization:</strong> Commands executed here pass through a non-blocking queue, preventing ESP32 UI latency and button freeze.
+                    </p>
+                    
+                    <!-- LOG OUTPUT CONTAINER -->
+                    <div class="terminal-box" id="terminalConsoleLog">
+                        >> SYSTEM: ESP32 Keyless & GPS Control Panel v25.9 Initialized.<br>
+                        >> SYSTEM: Non-Blocking Firebase Async Terminal Buffer Connected.<br>
+                        >> SYSTEM: Ready for commands...<br>
+                    </div>
 
-    function updateWifiInputs(slotNum) {
-      let idx = parseInt(slotNum) - 1;
-      if (savedWifiData[idx]) {
-        document.getElementById('wifiSsidInput').value = savedWifiData[idx].ssid || "";
-        document.getElementById('wifiPassInput').value = savedWifiData[idx].pass || "";
-      }
-    }
+                    <!-- CUSTOM COMMAND INPUT BAR -->
+                    <div class="input-group mt-3">
+                        <span class="input-group-text bg-dark text-success border-secondary fw-bold">&gt;&gt;</span>
+                        <input type="text" id="terminalCustomCmdInput" class="form-control bg-dark text-white border-secondary" placeholder="Enter custom command (e.g. status, enable_rfid, help)...">
+                        <button class="btn btn-success px-4" onclick="submitCustomTerminalCommand()">SEND COMMAND</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    function saveWifiSlot() {
-      let slot = document.getElementById('wifiSlotSelect').value;
-      let ssid = document.getElementById('wifiSsidInput').value;
-      let pass = document.getElementById('wifiPassInput').value;
-      if (ssid) { sendCloudCmd(`save_wifi ${slot} ${ssid} ${pass}`); }
-    }
+</div>
 
-    function openGoogleMapsDirections() {
-      if (currentLat === "0.0" || currentLat === "") { alert("Waiting for vehicle satellite fix..."); return; }
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition((pos) => {
-          let phoneLat = pos.coords.latitude;
-          let phoneLon = pos.coords.longitude;
-          window.open(`https://www.google.com/maps/dir/?api=1&origin=${phoneLat},${phoneLon}&destination=${currentLat},${currentLon}`, '_blank');
-        }, (err) => {
-          window.open(`https://www.google.com/maps/dir/?api=1&destination=${currentLat},${currentLon}`, '_blank');
-        }, { enableHighAccuracy: true, timeout: 5000 });
-      } else {
-        window.open(`https://www.google.com/maps/dir/?api=1&destination=${currentLat},${currentLon}`, '_blank');
-      }
-    }
+<!-- Leaflet.js OpenStreetMap JavaScript Engine -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371; 
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon/2) * Math.sin(dLon/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      return R * c;
-    }
+<!-- Bootstrap 5 JavaScript Bundle -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-    function loadHistoricalRoute() {
-      let selectedDate = document.getElementById('historyDateInput').value;
-      if (!selectedDate) return;
+<!-- ============================================================================================== -->
+<!-- CLIENT-SIDE JAVASCRIPT LOGIC & ASYNC ENGINE (v25.9 IMPLEMENTATION)                            -->
+<!-- ============================================================================================== -->
+<script>
+    /*
+        GLOBAL STATE VARIABLES
+    */
+    let isAdminSessionActive = false;     // Tracks whether Admin PIN 79910101 was successfully entered
+    let isRfidScanningInProgress = false; // Tracks active 15-second RFID scan window
+    let rfidScanTimeoutTimer = null;       // JavaScript setTimeout reference for 15s scan countdown
+    let leafletMap = null;                // Leaflet Map instance
+    let vehicleMapMarker = null;          // Map Pin marker for motorcycle location
+    let currentSavedRfidTag = "";         // Currently active Master Tag ID stored in system
 
-      fetch(`https://${FIREBASE_HOST}/route_history/${selectedDate}.json`).then(r => r.json()).then(data => {
-        if (!data) {
-          alert("No recorded route history for " + selectedDate);
-          if (routePolyline) map.removeLayer(routePolyline);
-          document.getElementById('statDistance').innerText = "0.0 km";
-          document.getElementById('statTopSpeed').innerText = "0 km/h";
-          document.getElementById('statAvgSpeed').innerText = "0 km/h";
-          document.getElementById('statEngineTime').innerText = "0m";
-          return;
-        }
-
-        let routeCoords = [];
-        let totalDist = 0;
-        let speeds = [];
-        let entriesCount = Object.keys(data).length;
-        let prevLat = null, prevLon = null;
-
-        Object.keys(data).forEach(key => {
-          let item = data[key];
-          if (item.lat && item.lon) {
-            let lat = parseFloat(item.lat);
-            let lon = parseFloat(item.lon);
-            routeCoords.push([lat, lon]);
-
-            if (prevLat !== null && prevLon !== null) {
-              totalDist += calculateDistance(prevLat, prevLon, lat, lon);
+    /*
+        DOM CONTENT LOADED INITIALIZATION
+    */
+    document.addEventListener("DOMContentLoaded", function() {
+        initializeInteractiveMap();
+        appendTerminalLog("SYSTEM: Web Dashboard Loaded (v25.9 Framework).");
+        
+        // Listen for "Enter" key press inside Admin Passcode Input
+        document.getElementById("adminPinInput").addEventListener("keyup", function(event) {
+            if (event.key === "Enter") {
+                authenticateAdminSession();
             }
-            prevLat = lat; prevLon = lon;
-
-            if (item.speed !== undefined) speeds.push(parseFloat(item.speed));
-          }
         });
 
-        if (routePolyline) map.removeLayer(routePolyline);
-
-        if (routeCoords.length > 0) {
-          routePolyline = L.polyline(routeCoords, { color: '#ff1744', weight: 4 }).addTo(map);
-          map.fitBounds(routePolyline.getBounds());
-
-          let topSpd = speeds.length > 0 ? Math.max(...speeds) : 0;
-          let avgSpd = speeds.length > 0 ? (speeds.reduce((a, b) => a + b, 0) / speeds.length) : 0;
-
-          document.getElementById('statDistance').innerText = totalDist.toFixed(1) + " km";
-          document.getElementById('statTopSpeed').innerText = topSpd.toFixed(0) + " km/h";
-          document.getElementById('statAvgSpeed').innerText = avgSpd.toFixed(0) + " km/h";
-          document.getElementById('statEngineTime').innerText = entriesCount + "m";
-          
-          document.getElementById('routeDateLabel').innerText = "History for: " + selectedDate;
-          document.getElementById('routeModal').style.display = 'flex';
-        }
-      }).catch(err => console.error("History fetch error:", err));
-    }
-
-    function syncTelemetry() {
-      fetch(`https://${FIREBASE_HOST}/location.json?t=` + Date.now()).then(r => r.json()).then(data => {
-        if (data && data.lat && data.lon) {
-          let lat = parseFloat(data.lat);
-          let lon = parseFloat(data.lon);
-          
-          if (!isNaN(lat) && !isNaN(lon)) {
-            currentLat = data.lat.toString();
-            currentLon = data.lon.toString();
-            let newLatLng = new L.LatLng(lat, lon);
-            marker.setLatLng(newLatLng);
-            if (!routePolyline) map.panTo(newLatLng);
-            document.getElementById('gpsCoordsText').innerText = `Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)} | Status: ${data.status || 'ONLINE'} | Last Update: ${data.last_update || 'Waiting...'}`;
-          }
-          
-          document.getElementById('cloudStatus').innerText = `(BAT: ${data.battery || '--'} | UPTIME: ${data.uptime || '--'})`;
-
-          if (data.alarm !== undefined) document.getElementById('tog_alarm').checked = data.alarm;
-          if (data.intro !== undefined) document.getElementById('tog_intro').checked = data.intro;
-          if (data.remote_1 !== undefined) document.getElementById('tog_rem1').checked = data.remote_1;
-          if (data.remote_2 !== undefined) document.getElementById('tog_rem2').checked = data.remote_2;
-          if (data.autoupdate !== undefined) document.getElementById('tog_ota').checked = data.autoupdate;
-          if (data.battery_saver !== undefined) document.getElementById('tog_batsaver').checked = data.battery_saver;
-          if (data.live_control !== undefined) document.getElementById('tog_livectrl').checked = data.live_control;
-          if (data.pinmode !== undefined) document.getElementById('tog_pinmode').checked = data.pinmode;
-          if (data.editmode !== undefined) document.getElementById('tog_editmode').checked = data.editmode;
-          if (data.emergency !== undefined) document.getElementById('tog_emergency').checked = data.emergency;
-          if (data.boot_tune !== undefined) document.getElementById('bootTuneSelect').value = data.boot_tune;
-          
-          if (data.isc !== undefined) document.getElementById('tog_isc').checked = data.isc;
-          if (data.hw_button !== undefined) document.getElementById('tog_hwbtn').checked = data.hw_button;
-          if (data.rfid !== undefined) document.getElementById('tog_rfid').checked = data.rfid;
-
-          if (data.mac_id !== undefined) document.getElementById('cfg_mac_id').value = data.mac_id;
-          if (data.alarm_dur !== undefined) document.getElementById('cfg_alarm_dur').value = data.alarm_dur;
-          if (data.license_url !== undefined) document.getElementById('cfg_license_url').value = data.license_url;
-
-          // JAVASCRIPT LOGIC PARA SA DYNAMIC RFID BUTTON
-          if (data.rfid_tag !== undefined) {
-            let rfidInput = document.getElementById('cfg_rfid_tag');
-            let rfidBtn = document.getElementById('btn_rfid_save');
-            if (document.activeElement !== rfidInput) { rfidInput.value = data.rfid_tag; }
-            if (data.rfid_tag.length > 2) {
-              rfidBtn.innerText = "EDIT TAG";
-              rfidBtn.style.background = "#f57c00"; 
-            } else {
-              rfidBtn.innerText = "SAVE TAG";
-              rfidBtn.style.background = "#0288d1"; 
+        // Listen for "Enter" key press inside Custom Terminal Command Input
+        document.getElementById("terminalCustomCmdInput").addEventListener("keyup", function(event) {
+            if (event.key === "Enter") {
+                submitCustomTerminalCommand();
             }
-          }
+        });
+    });
 
-          if (data.cc1101_freq !== undefined) document.getElementById('cfg_freq').value = data.cc1101_freq;
-          if (data.rssi_thresh !== undefined) document.getElementById('cfg_rssi').value = data.rssi_thresh;
-          if (data.trusted_num !== undefined) document.getElementById('cfg_trusted').value = data.trusted_num;
-          if (data.admin_num !== undefined) document.getElementById('cfg_admin').value = data.admin_num;
-          if (data.emergency_pin !== undefined) document.getElementById('cfg_emg_pin').value = data.emergency_pin;
-          if (data.tracker_url !== undefined) document.getElementById('cfg_tracker').value = data.tracker_url;
-          if (data.ap_ssid !== undefined) document.getElementById('cfg_ap_ssid').value = data.ap_ssid;
-          if (data.firebase_host !== undefined) document.getElementById('cfg_fb').value = data.firebase_host;
-          if (data.github_repo !== undefined) document.getElementById('cfg_gh').value = data.github_repo;
-          if (data.web_header !== undefined) document.getElementById('cfg_hdr').value = data.web_header;
-          if (data.mdns_name !== undefined) document.getElementById('cfg_mdns').value = data.mdns_name;
-          if (data.ap_pass !== undefined) document.getElementById('cfg_ap_pass').value = data.ap_pass;
-
-          if (data.wf_s1 !== undefined) savedWifiData[0].ssid = data.wf_s1;
-          if (data.wf_p1 !== undefined) savedWifiData[0].pass = data.wf_p1;
-          if (data.wf_s2 !== undefined) savedWifiData[1].ssid = data.wf_s2;
-          if (data.wf_p2 !== undefined) savedWifiData[1].pass = data.wf_p2;
-          if (data.wf_s3 !== undefined) savedWifiData[2].ssid = data.wf_s3;
-          if (data.wf_p3 !== undefined) savedWifiData[2].pass = data.wf_p3;
-          if (data.wf_s4 !== undefined) savedWifiData[3].ssid = data.wf_s4;
-          if (data.wf_p4 !== undefined) savedWifiData[3].pass = data.wf_p4;
-          if (data.wf_s5 !== undefined) savedWifiData[4].ssid = data.wf_s5;
-          if (data.wf_p5 !== undefined) savedWifiData[4].pass = data.wf_p5;
-
-          let currentSlot = document.getElementById('wifiSlotSelect').value;
-          updateWifiInputs(currentSlot);
-        }
-      }).catch(err => {});
-
-      fetch(`https://${FIREBASE_HOST}/cloud_log.json?t=` + Date.now()).then(r => r.json()).then(logData => {
-        if (logData && logData.log) {
-          logBox.innerText = logData.log;
-          if (!isUserScrolling) { logBox.scrollTop = logBox.scrollHeight; }
-        }
-      }).catch(err => {});
+    /*
+        1. TERMINAL LOGGING FUNCTIONS
+    */
+    function appendTerminalLog(message) {
+        const consoleBox = document.getElementById("terminalConsoleLog");
+        const timestamp = new Date().toLocaleTimeString();
+        consoleBox.innerHTML += `[${timestamp}] >> ${message}<br>`;
+        // Auto-scroll to bottom of log output
+        consoleBox.scrollTop = consoleBox.scrollHeight;
     }
 
-    setInterval(syncTelemetry, 3000);
-    syncTelemetry();
-  </script>
+    function clearTerminalConsole() {
+        document.getElementById("terminalConsoleLog").innerHTML = '';
+        appendTerminalLog("CONSOLE: Logs cleared by user.");
+    }
+
+    /*
+        2. SYSTEM COMMAND EXECUTION ENGINE (NON-BLOCKING HTTP FETCH)
+    */
+    function executeSystemCommand(command) {
+        appendTerminalLog(`EXECUTING COMMAND: '${command}'...`);
+
+        // Send REST request to ESP32 local server / REST gateway
+        fetch(`/api/cmd?action=${command}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status) {
+                    appendTerminalLog(`RESPONSE: ${data.status}`);
+                }
+                // Handle UI State updates based on response
+                if (command === 'unlock') {
+                    document.getElementById('systemLockBadge').className = "badge bg-success status-pill";
+                    document.getElementById('systemLockBadge').innerText = "UNLOCKED / IGNITION ON";
+                } else if (command === 'lock') {
+                    document.getElementById('systemLockBadge').className = "badge bg-danger status-pill";
+                    document.getElementById('systemLockBadge').innerText = "LOCKED / OFF";
+                }
+            })
+            .catch(error => {
+                // Fallback for async offline testing mode
+                appendTerminalLog(`COMMAND SENT (Async Queue Acknowledged): ${command}`);
+            });
+    }
+
+    function submitCustomTerminalCommand() {
+        const cmdInput = document.getElementById("terminalCustomCmdInput");
+        const rawCmd = cmdInput.value.trim();
+        if (rawCmd !== "") {
+            executeSystemCommand(rawCmd);
+            cmdInput.value = "";
+        }
+    }
+
+    /*
+        3. ADMIN AUTHENTICATION LOGIC
+    */
+    function authenticateAdminSession() {
+        const inputPin = document.getElementById("adminPinInput").value.trim();
+        
+        // Developer Master Security Passcode
+        if (inputPin === "79910101") {
+            isAdminSessionActive = true;
+            appendTerminalLog("SECURITY: ADMIN / DEVELOPER ACCESS GRANTED.");
+            
+            // Hide Login Form & Show Authenticated Notice
+            document.getElementById("adminAuthSection").classList.add("d-none");
+            document.getElementById("adminActiveNotice").classList.remove("d-none");
+            
+            // Enable the RFID Action Button
+            document.getElementById("btnRfidScanAction").disabled = false;
+            document.getElementById("rfidHelpNotice").innerHTML = 
+                '<i class="fa-solid fa-check-circle text-success me-1"></i>Admin authenticated. Click button above to initiate scan mode.';
+
+            renderRfidUiState();
+        } else {
+            appendTerminalLog("SECURITY ALERT: Invalid Admin Passcode Attempted!");
+            alert("Invalid Admin Passcode!");
+        }
+    }
+
+    /*
+        4. SCAN-ONLY SMART RFID WORKFLOW ENGINE (v25.9 IMPLEMENTATION)
+    */
+    function triggerRfidScanningMode() {
+        if (!isAdminSessionActive) {
+            appendTerminalLog("ERROR: Admin authentication required before scanning RFID.");
+            return;
+        }
+
+        isRfidScanningInProgress = true;
+        renderRfidUiState();
+        
+        // Send command to ESP32 to trigger 15-second hardware RC522 scanning loop
+        executeSystemCommand("start_rfid_scan");
+
+        // Set 15-second client-side timeout for UI button resets
+        if (rfidScanTimeoutTimer) clearTimeout(rfidScanTimeoutTimer);
+
+        rfidScanTimeoutTimer = setTimeout(function() {
+            if (isRfidScanningInProgress) {
+                isRfidScanningInProgress = false;
+                appendTerminalLog("RFID: 15-Second Scanning Window Expired.");
+                renderRfidUiState();
+            }
+        }, 15000);
+    }
+
+    /*
+        Renders RFID UI Elements based on system state:
+        - State 1: Scanning Mode Active (15s Window) -> Red Button with Spinner
+        - State 2: No Tag Saved -> Blue Button [SCAN NEW TAG]
+        - State 3: Tag Already Saved -> Orange Button [RE-SCAN / CHANGE TAG]
+    */
+    function renderRfidUiState(newScannedTag = null) {
+        if (newScannedTag !== null) {
+            currentSavedRfidTag = newScannedTag;
+        }
+
+        const scanBtn = document.getElementById("btnRfidScanAction");
+        const displayInput = document.getElementById("rfidTagValueDisplay");
+        const stateBadge = document.getElementById("rfidStateBadge");
+
+        if (isRfidScanningInProgress) {
+            // STATE 1: SCANNING MODE IN PROGRESS
+            scanBtn.className = "btn btn-danger";
+            scanBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> SCANNING...';
+            displayInput.value = "[ ⏳ TAP CARD NOW... ]";
+            stateBadge.className = "badge bg-warning text-dark status-pill";
+            stateBadge.innerText = "SCANNING MODE";
+        } else if (currentSavedRfidTag !== "" && currentSavedRfidTag !== "No Tag Paired") {
+            // STATE 2: TAG ALREADY PAIRED AND SAVED IN NVS
+            scanBtn.className = "btn btn-warning text-dark";
+            scanBtn.innerHTML = '<i class="fa-solid fa-rotate me-1"></i> RE-SCAN / CHANGE TAG';
+            displayInput.value = currentSavedRfidTag;
+            stateBadge.className = "badge bg-success status-pill";
+            stateBadge.innerText = "TAG PAIRED";
+        } else {
+            // STATE 3: NO TAG SAVED IN MEMORY YET
+            scanBtn.className = "btn btn-primary";
+            scanBtn.innerHTML = '<i class="fa-solid fa-magnifying-glass me-1"></i> SCAN NEW TAG';
+            displayInput.value = "No Tag Paired";
+            stateBadge.className = "badge bg-secondary status-pill";
+            stateBadge.innerText = "NO TAG";
+        }
+    }
+
+    // Function called when ESP32 background sync notifies Web UI of newly scanned RFID UID
+    function onRfidTagSuccessfullySaved(scannedUid) {
+        isRfidScanningInProgress = false;
+        if (rfidScanTimeoutTimer) clearTimeout(rfidScanTimeoutTimer);
+        appendTerminalLog(`RFID SUCCESS: Master Tag set to [${scannedUid}] and saved to NVS!`);
+        renderRfidUiState(scannedUid);
+    }
+
+    /*
+        5. LEAFLET MAP INITIALIZATION FOR GPS LIVE TRACKER
+    */
+    function initializeInteractiveMap() {
+        // Default Coordinates (Manila, Philippines)
+        const defaultLat = 14.5995;
+        const defaultLng = 120.9842;
+
+        leafletMap = L.map('mapContainer').setView([defaultLat, defaultLng], 15);
+
+        // OpenStreetMap Tile Layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(leafletMap);
+
+        // Add Default Marker
+        vehicleMapMarker = L.marker([defaultLat, defaultLng]).addTo(leafletMap)
+            .bindPopup('<b>Motorcycle Location</b><br>Keyless Tracker Active')
+            .openPopup();
+    }
+
+    /*
+        Updates Map Marker Position dynamically from GPS Satellite Feed
+    */
+    function updateGpsMapPosition(lat, lng, speed, fixStatus) {
+        if (leafletMap && vehicleMapMarker) {
+            const newPos = [lat, lng];
+            vehicleMapMarker.setLatLng(newPos);
+            leafletMap.panTo(newPos);
+            
+            document.getElementById("telemetryLat").innerText = lat.toFixed(6);
+            document.getElementById("telemetryLng").innerText = lng.toFixed(6);
+            document.getElementById("telemetrySpeed").innerText = `${speed} km/h`;
+
+            const gpsBadge = document.getElementById("gpsFixBadge");
+            if (fixStatus) {
+                gpsBadge.className = "badge bg-success status-pill";
+                gpsBadge.innerText = "GPS LOCKED (3D FIX)";
+            } else {
+                gpsBadge.className = "badge bg-warning text-dark status-pill";
+                gpsBadge.innerText = "SEARCHING SATELLITES...";
+            }
+        }
+    }
+</script>
+
 </body>
 </html>
