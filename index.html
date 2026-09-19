@@ -29,7 +29,7 @@
     .btn-custom { background: #ab47bc; color: #fff; }
     .btn-save { padding: 8px; font-size: 12px; background: #0288d1; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
     
-    /* Terminal Monitor Box - Standard 10k Char Rolling Buffer */
+    /* Terminal Monitor Box */
     #log { width: 90%; max-width: 500px; height: 220px; background: #000; color: #00ff00; border: 1px solid #333; margin: 12px auto; padding: 10px; text-align: left; font-family: monospace; overflow-y: scroll; white-space: pre-wrap; font-size: 12px; box-sizing: border-box; }
 
     /* Map Container Fix */
@@ -120,7 +120,7 @@
     <div class="item-row"><span>🛡️ ISC Protection</span><label class="switch"><input type="checkbox" id="tog_isc" onchange="toggleFeature('isc', this.checked)"><span class="slider"></span></label></div>
     
     <div id="adminSlidersDiv" style="display:none;">
-      <div class="item-row"><span style="color:#ffb300;">🔘 Hardware Button Override</span><label class="switch"><input type="checkbox" id="tog_hwbtn" onchange="toggleFeature('hw_button', this.checked)"><span class="slider"></span></label></div>
+      <div class="item-row"><span style="color:#ffb300;">🔘 HW Button Override</span><label class="switch"><input type="checkbox" id="tog_hwbtn" onchange="toggleFeature('hw_button', this.checked)"><span class="slider"></span></label></div>
       <div class="item-row"><span style="color:#ffb300;">💳 RFID System Status</span><label class="switch"><input type="checkbox" id="tog_rfid" onchange="toggleFeature('rfid', this.checked)"><span class="slider"></span></label></div>
       <div class="item-row"><span>&#128267; Wi-Fi Battery Saver</span><label class="switch"><input type="checkbox" id="tog_batsaver" onchange="toggleFeature('battery_saver', this.checked)"><span class="slider"></span></label></div>
       <div class="item-row"><span>&#9729; Live Cloud Control</span><label class="switch"><input type="checkbox" id="tog_livectrl" onchange="toggleFeature('live_control', this.checked)"><span class="slider"></span></label></div>
@@ -152,6 +152,7 @@
     <span style="font-size:11px; color:#aaa;">🌍 License Server URL:</span>
     <div class="form-row"><input type="text" id="cfg_license_url" placeholder="https://..."><button class="btn-save" onclick="sendCloudCmd('set_license_url ' + document.getElementById('cfg_license_url').value)">SAVE LINK</button></div>
 
+    <!-- ADDED RFID TAG INPUT HERE -->
     <span style="font-size:11px; color:#aaa;">💳 Master RFID Tag ID:</span>
     <div class="form-row">
       <input type="text" id="cfg_rfid_tag" placeholder="Scan or Type Tag ID...">
@@ -517,7 +518,6 @@
           if (data.emergency !== undefined) document.getElementById('tog_emergency').checked = data.emergency;
           if (data.boot_tune !== undefined) document.getElementById('bootTuneSelect').value = data.boot_tune;
           
-          // New v25.7 Toggles
           if (data.isc !== undefined) document.getElementById('tog_isc').checked = data.isc;
           if (data.hw_button !== undefined) document.getElementById('tog_hwbtn').checked = data.hw_button;
           if (data.rfid !== undefined) document.getElementById('tog_rfid').checked = data.rfid;
@@ -526,7 +526,7 @@
           if (data.alarm_dur !== undefined) document.getElementById('cfg_alarm_dur').value = data.alarm_dur;
           if (data.license_url !== undefined) document.getElementById('cfg_license_url').value = data.license_url;
 
-          // RFID Dynamic Button Logic
+          // JAVASCRIPT LOGIC PARA SA DYNAMIC RFID BUTTON
           if (data.rfid_tag !== undefined) {
             let rfidInput = document.getElementById('cfg_rfid_tag');
             let rfidBtn = document.getElementById('btn_rfid_save');
