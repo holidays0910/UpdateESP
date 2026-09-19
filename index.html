@@ -53,8 +53,8 @@
     .pw-container { position: relative; display: inline-block; width: 60%; }
     .pw-container input { width: 100%; box-sizing: border-box; padding-right: 30px; }
     .eye-btn { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); cursor: pointer; background: none; border: none; color: #aaa; font-size: 14px; }
-    .stat-box { display: flex; justify-content: space-around; background: #2a2a2a; padding: 10px; border-radius: 5px; margin-top: 10px; text-align: center; font-size: 12px; }
-    .stat-item { flex: 1; }
+    .stat-box { display: flex; justify-content: space-around; background: #2a2a2a; padding: 10px; border-radius: 5px; margin-top: 10px; text-align: center; font-size: 12px; flex-wrap: wrap; }
+    .stat-item { flex: 1; min-width: 45%; margin-bottom: 5px; }
     .stat-val { font-size: 15px; font-weight: bold; color: #29b6f6; margin-top: 4px; }
   </style>
 </head>
@@ -106,12 +106,6 @@
       <input type="date" id="historyDateInput">
       <button class="btn-save" style="background:#ab47bc;" onclick="loadHistoricalRoute()">LOAD ROUTE</button>
     </div>
-    <div class="stat-box">
-      <div class="stat-item">Distance<div class="stat-val" id="statDistance">0.0 km</div></div>
-      <div class="stat-item">Top Speed<div class="stat-val" id="statTopSpeed">0 km/h</div></div>
-      <div class="stat-item">Avg Speed<div class="stat-val" id="statAvgSpeed">0 km/h</div></div>
-      <div class="stat-item">Engine Time<div class="stat-val" id="statEngineTime">0m</div></div>
-    </div>
   </div>
 
   <!-- 10 iOS Sliders Card -->
@@ -123,6 +117,7 @@
     <div class="item-row"><span>&#128251; RF Remote 1</span><label class="switch"><input type="checkbox" id="tog_rem1" onchange="toggleFeature('remote_1', this.checked)"><span class="slider"></span></label></div>
     <div class="item-row"><span>&#128506; RF Remote 2</span><label class="switch"><input type="checkbox" id="tog_rem2" onchange="toggleFeature('remote_2', this.checked)"><span class="slider"></span></label></div>
     <div class="item-row"><span>&#128260; Cloud Auto-Update OTA</span><label class="switch"><input type="checkbox" id="tog_ota" onchange="toggleFeature('autoupdate', this.checked)"><span class="slider"></span></label></div>
+    <div class="item-row"><span>🛡️ ISC Protection</span><label class="switch"><input type="checkbox" id="tog_isc" onchange="toggleFeature('isc', this.checked)"><span class="slider"></span></label></div>
     
     <div id="adminSlidersDiv" style="display:none;">
       <div class="item-row"><span>&#128267; Wi-Fi Battery Saver</span><label class="switch"><input type="checkbox" id="tog_batsaver" onchange="toggleFeature('battery_saver', this.checked)"><span class="slider"></span></label></div>
@@ -149,6 +144,24 @@
   <div id="adminConfigCardDiv" class="card" style="display:none;">
     <b style="color:#ab47bc;">🛠️ ADVANCED SYSTEM CONFIG (ADMIN)</b><br><br>
     
+    <span style="font-size:11px; color:#aaa;">🆔 ESP32 Board MAC ID (License):</span>
+    <div class="form-row"><input type="text" id="cfg_mac_id" readonly placeholder="Fetching MAC..."><button class="btn-save" style="background:#f57c00;" onclick="copyMacId()">COPY ID</button></div>
+
+    <span style="font-size:11px; color:#aaa;">🌍 License Server URL:</span>
+    <div class="form-row"><input type="text" id="cfg_license_url" placeholder="https://..."><button class="btn-save" onclick="sendCloudCmd('set_license_url ' + document.getElementById('cfg_license_url').value)">SAVE LICENSE</button></div>
+
+    <span style="font-size:11px; color:#aaa;">⏱️ Alarm Duration (Mins):</span>
+    <div class="form-row">
+      <select id="cfg_alarm_dur" style="background:#2a2a2a; color:#fff;">
+        <option value="1">1 Minute</option>
+        <option value="2">2 Minutes</option>
+        <option value="3">3 Minutes</option>
+        <option value="4">4 Minutes</option>
+        <option value="5">5 Minutes</option>
+      </select>
+      <button class="btn-save" onclick="sendCloudCmd('set_alarm_dur ' + document.getElementById('cfg_alarm_dur').value)">SAVE DUR</button>
+    </div>
+
     <span style="font-size:11px; color:#aaa;">📻 CC1101 Frequency (MHz):</span>
     <div class="form-row"><input type="text" id="cfg_freq" placeholder="433.92"><button class="btn-save" onclick="sendCloudCmd('set_freq ' + document.getElementById('cfg_freq').value)">SAVE FREQ</button></div>
     
@@ -164,7 +177,6 @@
     <span style="font-size:11px; color:#aaa;">👨‍💻 Developer Admin Number:</span>
     <div class="form-row"><input type="text" id="cfg_admin" placeholder="+639..."><button class="btn-save" onclick="sendCloudCmd('set_admin_num ' + document.getElementById('cfg_admin').value)">SAVE ADMIN</button></div>
 
-    <!-- IDINAGDAG: Emergency PIN Input Field & Save Button -->
     <span style="font-size:11px; color:#aaa;">🆘 Emergency PIN Code (8 Digits):</span>
     <div class="form-row"><div class="pw-container"><input type="password" id="cfg_emg_pin" placeholder="Emergency PIN"><button type="button" class="eye-btn" onclick="toggleEmgPw()">👁️</button></div><button class="btn-save" onclick="sendCloudCmd('set_emg_pin ' + document.getElementById('cfg_emg_pin').value)">SAVE EMG PIN</button></div>
 
@@ -203,6 +215,21 @@
     </div>
   </div>
 
+  <!-- Modal Route Analytics Popup -->
+  <div id="routeModal" class="modal">
+    <div class="modal-content">
+      <h3 style="color:#ab47bc; margin-top:0;">📊 ROUTE SUMMARY</h3>
+      <p id="routeDateLabel" style="font-size:12px; color:#aaa;">Date</p>
+      <div class="stat-box">
+        <div class="stat-item">Distance<div class="stat-val" id="statDistance">0.0 km</div></div>
+        <div class="stat-item">Top Speed<div class="stat-val" id="statTopSpeed">0 km/h</div></div>
+        <div class="stat-item">Avg Speed<div class="stat-val" id="statAvgSpeed">0 km/h</div></div>
+        <div class="stat-item">Engine Time<div class="stat-val" id="statEngineTime">0m</div></div>
+      </div>
+      <button class="btn btn-cmd" style="width:80%; background:#555; margin-top:15px;" onclick="closeRouteModal()">CLOSE DETAILS</button>
+    </div>
+  </div>
+
   <!-- Modal Login Popup Prompt -->
   <div id="loginModal" class="modal">
     <div class="modal-content">
@@ -214,7 +241,7 @@
     </div>
   </div>
 
-  <p style="color:#555; font-size:11px; margin-top:25px; text-align:center;">Developed by: RENZ ALDRIN GOMEZ</p>
+  <p style="color:#555; font-size:11px; margin-top:25px; text-align:center;">Developed by: RENZ ALDRIN GOMEZ<br>Web UI Version: v25.7</p>
 
   <script>
     const FIREBASE_HOST = "keylesstrackerrenz-default-rtdb.asia-southeast1.firebasedatabase.app";
@@ -244,6 +271,22 @@
 
     function openLoginModal() { document.getElementById('loginModal').style.display = 'flex'; }
     function closeLoginModal() { document.getElementById('loginModal').style.display = 'none'; }
+    function closeRouteModal() { document.getElementById('routeModal').style.display = 'none'; }
+
+    function copyMacId() {
+      let macInput = document.getElementById('cfg_mac_id');
+      if (!macInput.value || macInput.value === "Fetching MAC...") {
+        alert("MAC Address not yet loaded!"); return;
+      }
+      macInput.select();
+      macInput.setSelectionRange(0, 99999);
+      try {
+        document.execCommand("copy");
+        alert("Copied Board ID to clipboard:\n" + macInput.value);
+      } catch (err) {
+        alert("Failed to copy.");
+      }
+    }
 
     function submitModalLogin() {
       let pin = document.getElementById('modalPinInput').value;
@@ -430,6 +473,9 @@
           document.getElementById('statTopSpeed').innerText = topSpd.toFixed(0) + " km/h";
           document.getElementById('statAvgSpeed').innerText = avgSpd.toFixed(0) + " km/h";
           document.getElementById('statEngineTime').innerText = entriesCount + "m";
+          
+          document.getElementById('routeDateLabel').innerText = "History for: " + selectedDate;
+          document.getElementById('routeModal').style.display = 'flex';
         }
       }).catch(err => console.error("History fetch error:", err));
     }
@@ -462,6 +508,11 @@
           if (data.editmode !== undefined) document.getElementById('tog_editmode').checked = data.editmode;
           if (data.emergency !== undefined) document.getElementById('tog_emergency').checked = data.emergency;
           if (data.boot_tune !== undefined) document.getElementById('bootTuneSelect').value = data.boot_tune;
+          if (data.isc !== undefined) document.getElementById('tog_isc').checked = data.isc;
+
+          if (data.mac_id !== undefined) document.getElementById('cfg_mac_id').value = data.mac_id;
+          if (data.alarm_dur !== undefined) document.getElementById('cfg_alarm_dur').value = data.alarm_dur;
+          if (data.license_url !== undefined) document.getElementById('cfg_license_url').value = data.license_url;
 
           if (data.cc1101_freq !== undefined) document.getElementById('cfg_freq').value = data.cc1101_freq;
           if (data.rssi_thresh !== undefined) document.getElementById('cfg_rssi').value = data.rssi_thresh;
