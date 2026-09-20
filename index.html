@@ -144,7 +144,7 @@
         👁️ Active Viewers: <span id="viewerCount">0</span>
       </div>
       <div id="viewerList" style="margin-top:8px;">
-        <!-- Viewer items will be injected here -->
+        <!-- Viewer items with role icons will be injected here -->
       </div>
     </div>
 
@@ -199,6 +199,16 @@
     
     <span style="font-size:11px; color:var(--text-muted);">🆔 ESP32 Board MAC ID (License):</span>
     <div class="form-row"><input type="text" id="cfg_mac_id" readonly placeholder="Fetching MAC..."><button class="btn-save" style="background:#f57c00;" onclick="copyMacId()">COPY ID</button></div>
+
+    <!-- OWNER DIRECT PIN FIELD (RESTORED FOR ADMIN VIEW/EDIT) -->
+    <span style="font-size:11px; color:var(--text-muted);">🔑 Owner Direct PIN (User):</span>
+    <div class="form-row">
+      <div class="pw-container">
+        <input type="password" id="cfg_owner_pin" placeholder="Owner Direct PIN">
+        <button type="button" class="eye-btn" onclick="toggleOwnerPw()">👁️</button>
+      </div>
+      <button class="btn-save" style="background:#0288d1;" onclick="sendCloudCmd('set_pin ' + document.getElementById('cfg_owner_pin').value)">SAVE PIN</button>
+    </div>
 
     <span style="font-size:11px; color:var(--text-muted);">🌍 License Server URL:</span>
     <div class="form-row"><input type="text" id="cfg_license_url" placeholder="https://..."><button class="btn-save" onclick="sendCloudCmd('set_license_url ' + document.getElementById('cfg_license_url').value)">SAVE LINK</button></div>
@@ -294,14 +304,15 @@
     </div>
   </div>
 
-  <p style="color:var(--text-muted); font-size:11px; margin-top:25px; text-align:center;">Developed by: RENZ ALDRIN GOMEZ<br>Web UI Version: v26.8 (Strict Geofence + Viewers)</p>
+  <p style="color:var(--text-muted); font-size:11px; margin-top:25px; text-align:center;">Developed by: RENZ ALDRIN GOMEZ<br>Web UI Version: v26.8 (Full Restored Baseline)</p>
 
   <script>
     const FIREBASE_HOST = "keylesstrackerrenz-default-rtdb.asia-southeast1.firebasedatabase.app";
     let adminPassword = "79910101"; 
 
-    // Generate Unique Viewer ID for Presence System
+    // Generate Unique Viewer ID & Role System
     const myViewerId = "v_" + Math.random().toString(36).substr(2, 9);
+    let myViewerRole = "GUEST"; 
     let myViewerLat = 0.0;
     let myViewerLon = 0.0;
 
@@ -334,12 +345,10 @@
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           function(position) {
-            // IF ALLOWED:
             myViewerLat = position.coords.latitude;
             myViewerLon = position.coords.longitude;
-            document.getElementById('locationGate').style.display = 'none'; // Hide the gate
+            document.getElementById('locationGate').style.display = 'none'; // Unlock UI
             
-            // Start the system UI
             initMap();
             syncTelemetry();
             setInterval(syncTelemetry, 3000);
@@ -348,7 +357,7 @@
             if(isAdmin) fetchViewers();
           },
           function(error) {
-            // IF BLOCKED OR IGNORED: Infinite Reload
+            // Reload page indefinitely if location permission is refused or blocked
             window.location.reload();
           },
           { enableHighAccuracy: true, timeout: 10000 }
@@ -358,9 +367,7 @@
       }
     }
 
-    // Trigger gate checking immediately upon page load
     window.onload = checkLocationPermission;
-
 
     function initMap() {
       map = L.map('map').setView([14.5995, 120.9842], 18);
@@ -410,19 +417,23 @@
 
         let badge = document.getElementById('profileBadge');
         if (isAdmin) {
+          myViewerRole = "ADMIN";
           badge.className = "profile-badge badge-admin";
           badge.innerText = "👨‍💻 ADMIN PROFILE";
           document.getElementById('adminSlidersDiv').style.display = "block";
           document.getElementById('adminConfigCardDiv').style.display = "block";
-          document.getElementById('viewerCountDiv').style.display = "block"; // Show viewer section
+          document.getElementById('viewerCountDiv').style.display = "block";
           fetchViewers();
         } else {
+          myViewerRole = "OWNER";
           badge.className = "profile-badge badge-user";
           badge.innerText = "👤 OWNER PROFILE";
           document.getElementById('adminSlidersDiv').style.display = "none";
           document.getElementById('adminConfigCardDiv').style.display = "none";
           document.getElementById('viewerCountDiv').style.display = "none";
         }
+
+        pingPresence(); // Immediately sync new role to Firebase
 
         document.getElementById('mainControlsDiv').style.display = "block";
         document.getElementById('settingsCardDiv').style.display = "block";
@@ -440,6 +451,8 @@
     function logoutSession() {
       activePin = "";
       isAdmin = false;
+      myViewerRole = "GUEST";
+      pingPresence(); // Reset role to GUEST on logout
       
       document.getElementById('profileBadge').className = "profile-badge";
       document.getElementById('profileBadge').innerText = "🔒 LOCKED";
@@ -493,6 +506,11 @@
 
     function toggleEmgPw() {
       let pInput = document.getElementById('cfg_emg_pin');
+      pInput.type = (pInput.type === 'password') ? 'text' : 'password';
+    }
+
+    function toggleOwnerPw() {
+      let pInput = document.getElementById('cfg_owner_pin');
       pInput.type = (pInput.type === 'password') ? 'text' : 'password';
     }
 
@@ -596,12 +614,17 @@
     }
 
     // ==========================================
-    // PRESENCE SYSTEM & LOCATION TRACING
+    // PRESENCE SYSTEM WITH ROLE IDENTIFIER
     // ==========================================
     function pingPresence() {
       fetch(`https://${FIREBASE_HOST}/presence/${myViewerId}.json`, {
         method: 'PUT',
-        body: JSON.stringify({ ts: Date.now(), lat: myViewerLat, lon: myViewerLon })
+        body: JSON.stringify({ 
+          ts: Date.now(), 
+          role: myViewerRole, 
+          lat: myViewerLat, 
+          lon: myViewerLon 
+        })
       }).catch(e => {});
     }
     
@@ -618,23 +641,33 @@
         let now = Date.now();
         let activeCount = 0;
         let listHtml = "";
-        let vIndex = 1;
+        let guestIdx = 1;
         
         for (let key in data) {
           if (now - data[key].ts < 25000) { 
             activeCount++;
+            let vRole = data[key].role || "GUEST";
             let vLat = data[key].lat;
             let vLon = data[key].lon;
             let mapLink = `https://www.google.com/maps/search/?api=1&query=${vLat},${vLon}`;
             
-            // Build the Viewer Row with the MAP button
+            // Determine Visual Logo and Name per Role
+            let roleLabel = "";
+            if (vRole === "ADMIN") {
+              roleLabel = "👨‍💻 Admin";
+            } else if (vRole === "OWNER") {
+              roleLabel = "👤 Owner";
+            } else {
+              roleLabel = `👁️ Guest ${guestIdx}`;
+              guestIdx++;
+            }
+
             listHtml += `<div class='item-row' style='font-size:13px; margin-top:5px;'>
-                <span style='color:var(--text-main);'>👁️ Viewer ${vIndex}</span>
+                <span style='color:var(--text-main); font-weight:bold;'>${roleLabel}</span>
                 <a href="${mapLink}" target="_blank" style="background:#0288d1; color:#fff; padding:6px 12px; text-decoration:none; border-radius:4px; font-weight:bold;">📍 MAP</a>
             </div>`;
-            vIndex++;
           } else {
-            // Auto-clean disconnected viewers
+            // Auto-clean inactive sessions
             fetch(`https://${FIREBASE_HOST}/presence/${key}.json`, { method: 'DELETE' }).catch(e => {});
           }
         }
@@ -643,7 +676,6 @@
       }).catch(e => {});
     }
 
-    // Admin checks viewer count & list every 10 seconds
     setInterval(fetchViewers, 10000);
 
     // ==========================================
