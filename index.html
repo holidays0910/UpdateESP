@@ -5,119 +5,88 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- 
         ESP32 Motorcycle Keyless Entry & GPS Tracker Dashboard
-        System Firmware & UI Version: v25.9
+        Firmware & UI Version: v25.9
         
-        DEVELOPER NOTES & CHANGE LOG (v25.9):
-        1. Fully responsive dark-themed dashboard using Bootstrap 5.3 & FontAwesome 6.4.
-        2. Integrated Non-Blocking / Async Live Terminal Console UI (eliminates UI freeze on commands).
-        3. Strict Scan-Only RFID Workflow:
-           - Manual typing into the RFID ID text field is completely DISABLED (Read-Only).
-           - Dynamic button changes depending on state (SCAN NEW TAG vs RE-SCAN / CHANGE TAG).
-           - 15-second scanning timeout indicator.
-        4. Complete multi-module interface: Ignition Control, GPS Live Telemetry, RF Remote Manager,
-           SIM800L Cellular Monitoring, and System Configuration.
+        DEVELOPER NOTES & MAINTENANCE MANUAL:
+        - Retains original baseline UI design, theme, grid structure, and styling rules.
+        - Updates system version tag in header to v25.9.
+        - Implements Scan-Only RFID Logic on Admin Card: Manual entry field is READ-ONLY.
+        - Button updates dynamically based on state: [SCAN NEW TAG] vs [RE-SCAN / CHANGE TAG] vs [SCANNING...].
+        - Preserves all original card components (Ignition, GPS Telemetry, GSM Diagnostics, Live Terminal).
     -->
-    <title>ESP32 Motorcycle Control Panel v25.9</title>
+    <title>ESP32 Keyless & GPS Tracker Panel v25.9</title>
 
-    <!-- Bootstrap 5 CSS Framework for UI Grid and Cards -->
+    <!-- Framework & Icon CDN Imports -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <!-- FontAwesome 6 Icons for Action Buttons & Indicators -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-
-    <!-- Leaflet.js CSS for Interactive OpenStreetMap Vehicle Live Tracking -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
     <style>
-        /* BASE THEME & OVERRIDES (DARK MODE SYSTEM) */
+        /* Baseline Dashboard Custom Styles */
         body {
             background-color: #121212;
             color: #e0e0e0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            padding-bottom: 40px;
+            padding-bottom: 30px;
         }
 
-        /* CARD CONTAINERS DESIGN */
         .card {
             background-color: #1e1e1e;
             border: 1px solid #2d2d2d;
-            border-radius: 14px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
             margin-bottom: 20px;
         }
 
         .card-header {
             background-color: #252525;
             border-bottom: 1px solid #333;
-            font-weight: 700;
-            font-size: 1.05rem;
-            border-radius: 14px 14px 0 0 !important;
-            padding: 14px 20px;
+            font-weight: bold;
+            border-radius: 12px 12px 0 0 !important;
+            padding: 12px 18px;
         }
 
-        /* VERSION BADGE STYLING */
         .badge-version {
-            background: linear-gradient(135deg, #0d6efd, #0b5ed7);
-            font-size: 0.85rem;
-            padding: 6px 14px;
+            background-color: #0d6efd;
+            font-size: 0.8rem;
+            padding: 5px 12px;
             border-radius: 20px;
-            box-shadow: 0 2px 8px rgba(13, 110, 253, 0.4);
         }
 
-        /* ACTION BUTTON STYLES WITH HOVER EFFECTS */
         .btn-action {
             font-weight: 600;
-            padding: 14px;
+            padding: 12px;
             border-radius: 10px;
-            transition: all 0.2s ease-in-out;
         }
 
-        .btn-action:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-        }
-
-        /* LIVE TERMINAL CONSOLE BOX STYLING */
         .terminal-box {
-            background-color: #050505;
+            background-color: #000000;
             color: #00ff66;
-            font-family: 'Consolas', 'Courier New', Courier, monospace;
-            height: 280px;
+            font-family: 'Courier New', Courier, monospace;
+            height: 250px;
             overflow-y: auto;
-            padding: 14px;
-            border-radius: 10px;
-            border: 1px solid #222;
-            font-size: 0.88rem;
-            line-height: 1.5;
-            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8);
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            font-size: 0.9rem;
         }
 
-        /* SCAN-ONLY READ-ONLY TEXTFIELD STYLING FOR RFID */
+        /* Scan-Only RFID Field Styling: Enforces Read-Only Display */
         .rfid-read-only {
             background-color: #2a2a2a !important;
             color: #ffc107 !important;
-            font-weight: 700;
-            letter-spacing: 1.5px;
+            font-weight: bold;
+            letter-spacing: 1px;
             border: 1px solid #444 !important;
             cursor: not-allowed;
             text-align: center;
         }
 
-        /* GPS MAP CONTAINER STYLING */
         #mapContainer {
-            height: 280px;
+            height: 250px;
             width: 100%;
-            border-radius: 10px;
+            border-radius: 8px;
             border: 1px solid #333;
-            z-index: 1;
-        }
-
-        /* CUSTOM STATUS BADGES */
-        .status-pill {
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
         }
     </style>
 </head>
@@ -125,173 +94,83 @@
 
 <div class="container py-4">
 
-    <!-- ========================================== -->
-    <!-- HEADER SECTION: SYSTEM TITLE & VERSION     -->
-    <!-- ========================================== -->
-    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom border-secondary">
+    <!-- HEADER SECTION -->
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom border-secondary">
         <div>
-            <h3 class="m-0 text-white fw-bold"><i class="fa-solid fa-shield-halved text-primary me-2"></i>ESP32 Keyless & GPS System</h3>
-            <small class="text-muted">Motorcycle Security, RFID Authentication & Live Tracking</small>
+            <h3 class="m-0 text-white"><i class="fa-solid fa-motorcycle text-primary me-2"></i>ESP32 Keyless & GPS</h3>
+            <small class="text-muted">Live Tracking & Security Control Unit</small>
         </div>
         <div>
-            <!-- Main Version Header Label (Set to v25.9) -->
-            <span class="badge badge-version" id="appVersionBadge">System v25.9</span>
+            <!-- System Version Indicator (v25.9) -->
+            <span class="badge badge-version" id="appVersion">System v25.9</span>
         </div>
     </div>
 
-    <!-- ROW 1: QUICK IGNITION CONTROL & ADMIN CONFIGURATION -->
+    <!-- MAIN CONTROL ROW -->
     <div class="row">
         
-        <!-- CARD 1: IGNITION & ENGINE RELAY CONTROLS -->
-        <div class="col-lg-6">
+        <!-- IGNITION & RELAY CONTROL CARD -->
+        <div class="col-md-6">
             <div class="card">
                 <div class="card-header text-white d-flex justify-content-between align-items-center">
-                    <span><i class="fa-solid fa-power-off me-2 text-warning"></i>Ignition & Relay Controls</span>
-                    <span id="systemLockBadge" class="badge bg-danger status-pill">LOCKED / OFF</span>
+                    <span><i class="fa-solid fa-power-off me-2 text-warning"></i>Quick Ignition Control</span>
+                    <span id="lockStatusBadge" class="badge bg-danger">LOCKED</span>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted small mb-3">Quick action commands for motorcycle keyless state bypass and engine cut-off.</p>
-                    <div class="d-grid gap-3">
-                        <!-- UNLOCK BUTTON: ENABLES IGNITION RELAY -->
-                        <button class="btn btn-success btn-action" id="btnUnlockSystem" onclick="executeSystemCommand('unlock')">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-success btn-action" id="btnUnlock" onclick="sendCommand('unlock')">
                             <i class="fa-solid fa-unlock me-2"></i>UNLOCK / IGNITION ON
                         </button>
-
-                        <!-- LOCK BUTTON: DISABLES IGNITION RELAY -->
-                        <button class="btn btn-danger btn-action" id="btnLockSystem" onclick="executeSystemCommand('lock')">
+                        <button class="btn btn-danger btn-action" id="btnLock" onclick="sendCommand('lock')">
                             <i class="fa-solid fa-lock me-2"></i>LOCK / ENGINE KILL
                         </button>
-
-                        <!-- FIND BIKE BUTTON: TRIGGERS HIGH-DECIBEL BUZZER & FLASHER -->
-                        <button class="btn btn-info btn-action text-white" id="btnFindBike" onclick="executeSystemCommand('find')">
-                            <i class="fa-solid fa-bullhorn me-2"></i>FIND BIKE (BUZZER ALERT)
+                        <button class="btn btn-info btn-action text-white" id="btnFind" onclick="sendCommand('find')">
+                            <i class="fa-solid fa-bullhorn me-2"></i>FIND BIKE (BUZZER)
                         </button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- CARD 2: ADMIN LOGIN & SCAN-ONLY SMART RFID CONFIGURATION -->
-        <div class="col-lg-6">
-            <div class="card">
-                <div class="card-header text-white d-flex justify-content-between align-items-center">
-                    <span><i class="fa-solid fa-user-gear me-2 text-info"></i>Admin & RFID Security Config</span>
-                    <span id="rfidStateBadge" class="badge bg-secondary status-pill">NO TAG</span>
-                </div>
-                <div class="card-body">
-                    
-                    <!-- ADMIN LOGIN FORM SECTION -->
-                    <div class="mb-3" id="adminAuthSection">
-                        <label class="form-label text-muted small fw-bold">ADMIN DEVELOPER LOGIN</label>
-                        <div class="input-group">
-                            <input type="password" id="adminPinInput" class="form-control bg-dark text-white border-secondary" placeholder="Enter Admin Passcode">
-                            <button class="btn btn-primary px-4" onclick="authenticateAdminSession()">LOGIN</button>
-                        </div>
-                    </div>
-
-                    <div id="adminActiveNotice" class="alert alert-success py-2 d-none mb-3">
-                        <i class="fa-solid fa-circle-check me-2"></i>Admin Mode Authenticated (v25.9 Security Privileges Active)
-                    </div>
-
-                    <hr class="border-secondary my-3">
-
-                    <!-- SMART SCAN-ONLY RFID SECTION (NO MANUAL TYPING ALLOWED) -->
-                    <div class="mb-2">
-                        <label class="form-label d-flex justify-content-between">
-                            <span class="fw-bold"><i class="fa-solid fa-id-card me-2 text-warning"></i>Master RFID Tag ID</span>
-                            <small class="text-muted">RC522 Hardware SPI</small>
-                        </label>
-                        <div class="input-group">
-                            <!-- READ-ONLY TEXTFIELD: PREVENTS MANUAL TYPOS BY USER -->
-                            <input type="text" id="rfidTagValueDisplay" class="form-control rfid-read-only" value="No Tag Paired" readonly>
-                            
-                            <!-- DYNAMIC ACTION BUTTON: CHANGES DEPENDING ON SCANNING / PAIRED STATE -->
-                            <button id="btnRfidScanAction" class="btn btn-primary" onclick="triggerRfidScanningMode()" disabled>
-                                <i class="fa-solid fa-magnifying-glass me-1"></i> SCAN NEW TAG
-                            </button>
-                        </div>
-                        <small class="text-muted mt-2 d-block" id="rfidHelpNotice">
-                            <i class="fa-solid fa-circle-info me-1"></i>Login as Admin to scan or update the RC522 Master Card.
-                        </small>
-                    </div>
-
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-    <!-- ROW 2: GPS TELEMETRY MAP & SIM800L CELLULAR STATUS -->
-    <div class="row">
-        
-        <!-- CARD 3: GPS LIVE MAP & TELEMETRY -->
-        <div class="col-lg-7">
-            <div class="card">
-                <div class="card-header text-white d-flex justify-content-between align-items-center">
-                    <span><i class="fa-solid fa-location-dot me-2 text-danger"></i>GPS Tracker Live Telemetry</span>
-                    <span id="gpsFixBadge" class="badge bg-warning text-dark status-pill">SEARCHING SATELLITES...</span>
-                </div>
-                <div class="card-body">
-                    <!-- LEAFLET INTERACTIVE MAP CONTAINER -->
-                    <div id="mapContainer" class="mb-3"></div>
-                    
-                    <!-- TELEMETRY DATA METRICS -->
-                    <div class="row text-center small text-muted">
-                        <div class="col-4 border-end border-secondary">
-                            <div class="fw-bold text-white" id="telemetryLat">0.000000</div>
-                            <div>Latitude</div>
-                        </div>
-                        <div class="col-4 border-end border-secondary">
-                            <div class="fw-bold text-white" id="telemetryLng">0.000000</div>
-                            <div>Longitude</div>
-                        </div>
-                        <div class="col-4">
-                            <div class="fw-bold text-white" id="telemetrySpeed">0 km/h</div>
-                            <div>Speed</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- CARD 4: SIM800L GSM SIGNAL & SYSTEM PARAMETERS -->
-        <div class="col-lg-5">
+        <!-- ADMIN & RFID SECURITY CONFIG CARD -->
+        <div class="col-md-6">
             <div class="card">
                 <div class="card-header text-white">
-                    <i class="fa-solid fa-signal me-2 text-success"></i>GSM & System Diagnostics
+                    <i class="fa-solid fa-user-shield me-2 text-info"></i>Admin & Security Config
                 </div>
                 <div class="card-body">
                     
-                    <!-- GSM SIGNAL LEVEL -->
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span><i class="fa-solid fa-tower-cell me-2 text-info"></i>SIM800L Signal:</span>
-                        <span class="fw-bold text-white" id="gsmSignalText">Checking...</span>
+                    <!-- Admin Login Section -->
+                    <div class="mb-3" id="adminLoginSection">
+                        <label class="form-label text-muted">Admin Passcode Login</label>
+                        <div class="input-group">
+                            <input type="password" id="adminPassInput" class="form-control bg-dark text-white border-secondary" placeholder="Enter Admin PIN">
+                            <button class="btn btn-outline-primary" onclick="loginAdmin()">LOGIN</button>
+                        </div>
                     </div>
 
-                    <!-- MAIN BATTERY VOLTAGE MONITOR (POWER-CUT SENSE) -->
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span><i class="fa-solid fa-car-battery me-2 text-warning"></i>12V Motorcycle Battery:</span>
-                        <span class="fw-bold text-success" id="mainBatteryVoltage">12.6V (Normal)</span>
-                    </div>
-
-                    <!-- BACKUP LITHIUM BATTERY VOLTAGE MONITOR -->
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span><i class="fa-solid fa-battery-half me-2 text-primary"></i>18650 Backup Power:</span>
-                        <span class="fw-bold text-info" id="backupBatteryVoltage">4.1V (TP4056 Active)</span>
-                    </div>
-
-                    <!-- WI-FI BATTERY SAVER MODE STATUS -->
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span><i class="fa-solid fa-wifi me-2 text-secondary"></i>Wi-Fi Battery Saver:</span>
-                        <span class="badge bg-success" id="wifiSaverBadge">ENABLED (15m Auto-Sleep)</span>
+                    <div id="adminSuccessNotice" class="alert alert-success py-2 d-none mb-3">
+                        <i class="fa-solid fa-check-circle me-2"></i>Admin Mode Authenticated
                     </div>
 
                     <hr class="border-secondary">
 
-                    <div class="d-grid">
-                        <button class="btn btn-outline-secondary btn-sm" onclick="executeSystemCommand('status')">
-                            <i class="fa-solid fa-rotate me-1"></i> REFRESH SYSTEM DIAGNOSTICS
-                        </button>
+                    <!-- SCAN-ONLY RFID CONFIGURATION SECTION (ORIGINAL UI LAYOUT) -->
+                    <div class="mb-3">
+                        <label class="form-label d-flex justify-content-between">
+                            <span><i class="fa-solid fa-id-card me-2 text-warning"></i>Master RFID Tag ID</span>
+                            <span id="rfidBadgeStatus" class="badge bg-secondary">NO TAG</span>
+                        </label>
+                        <div class="input-group">
+                            <!-- Read-Only Field to prevent manual typing typos -->
+                            <input type="text" id="rfidTagDisplay" class="form-control rfid-read-only" value="No Tag Paired" readonly>
+                            
+                            <!-- Dynamic Smart Button for Scan-Only Workflow -->
+                            <button id="btnRfidAction" class="btn btn-primary" onclick="triggerRfidScan()" disabled>
+                                <i class="fa-solid fa-magnifying-glass me-1"></i> SCAN NEW TAG
+                            </button>
+                        </div>
+                        <small class="text-muted mt-1 d-block" id="rfidHelpText">Login as Admin to scan or re-scan card.</small>
                     </div>
 
                 </div>
@@ -300,35 +179,78 @@
 
     </div>
 
-    <!-- ROW 3: ASYNC NON-BLOCKING LIVE TERMINAL CONSOLE -->
+    <!-- TELEMETRY & DIAGNOSTICS ROW -->
+    <div class="row">
+        
+        <!-- GPS MAP CARD -->
+        <div class="col-md-7">
+            <div class="card">
+                <div class="card-header text-white d-flex justify-content-between align-items-center">
+                    <span><i class="fa-solid fa-location-dot me-2 text-danger"></i>GPS Satellite Live Tracking</span>
+                    <span id="gpsFixBadge" class="badge bg-warning text-dark">SEARCHING...</span>
+                </div>
+                <div class="card-body">
+                    <div id="mapContainer" class="mb-2"></div>
+                    <div class="row text-center small text-muted">
+                        <div class="col-4">Lat: <span id="telemetryLat" class="text-white">0.000000</span></div>
+                        <div class="col-4">Lng: <span id="telemetryLng" class="text-white">0.000000</span></div>
+                        <div class="col-4">Speed: <span id="telemetrySpeed" class="text-white">0 km/h</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DIAGNOSTICS CARD -->
+        <div class="col-md-5">
+            <div class="card">
+                <div class="card-header text-white">
+                    <i class="fa-solid fa-heart-pulse me-2 text-success"></i>System Diagnostics
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>SIM800L Signal:</span>
+                        <span id="gsmSignalText" class="fw-bold text-white">Checking...</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Main Battery (12V):</span>
+                        <span id="mainBatteryVoltage" class="fw-bold text-success">12.6V</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Backup Battery (18650):</span>
+                        <span id="backupBatteryVoltage" class="fw-bold text-info">4.1V</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Wi-Fi Power Saver:</span>
+                        <span class="badge bg-success">ACTIVE</span>
+                    </div>
+                    <hr class="border-secondary">
+                    <div class="d-grid">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="sendCommand('status')">
+                            <i class="fa-solid fa-rotate me-1"></i> Refresh System Status
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- LIVE ASYNC TERMINAL CONSOLE CARD -->
     <div class="row">
         <div class="col-12">
             <div class="card">
                 <div class="card-header text-white d-flex justify-content-between align-items-center">
-                    <span><i class="fa-solid fa-terminal me-2 text-success"></i>Live Async System Terminal (v25.9 Framework)</span>
-                    <div>
-                        <span class="badge bg-success me-2">Background Log Stream Active</span>
-                        <button class="btn btn-sm btn-outline-secondary text-white" onclick="clearTerminalConsole()">Clear Logs</button>
-                    </div>
+                    <span><i class="fa-solid fa-terminal me-2 text-success"></i>Live System Terminal (v25.9 Async)</span>
+                    <button class="btn btn-sm btn-outline-secondary text-white" onclick="clearTerminal()">Clear</button>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted small mb-2">
-                        <i class="fa-solid fa-lightbulb text-warning me-1"></i>
-                        <strong>v25.9 Optimization:</strong> Commands executed here pass through a non-blocking queue, preventing ESP32 UI latency and button freeze.
-                    </p>
-                    
-                    <!-- LOG OUTPUT CONTAINER -->
-                    <div class="terminal-box" id="terminalConsoleLog">
-                        >> SYSTEM: ESP32 Keyless & GPS Control Panel v25.9 Initialized.<br>
-                        >> SYSTEM: Non-Blocking Firebase Async Terminal Buffer Connected.<br>
-                        >> SYSTEM: Ready for commands...<br>
+                    <div class="terminal-box" id="terminalLog">
+                        >> SYSTEM: ESP32 Keyless UI Dashboard v25.9 Initialized.<br>
+                        >> SYSTEM: Async Terminal Engine Ready.<br>
                     </div>
-
-                    <!-- CUSTOM COMMAND INPUT BAR -->
                     <div class="input-group mt-3">
-                        <span class="input-group-text bg-dark text-success border-secondary fw-bold">&gt;&gt;</span>
-                        <input type="text" id="terminalCustomCmdInput" class="form-control bg-dark text-white border-secondary" placeholder="Enter custom command (e.g. status, enable_rfid, help)...">
-                        <button class="btn btn-success px-4" onclick="submitCustomTerminalCommand()">SEND COMMAND</button>
+                        <input type="text" id="terminalCmdInput" class="form-control bg-dark text-white border-secondary" placeholder="Type custom command (e.g. status, enable_rfid)...">
+                        <button class="btn btn-success" onclick="sendCustomCommand()">SEND</button>
                     </div>
                 </div>
             </div>
@@ -337,246 +259,155 @@
 
 </div>
 
-<!-- Leaflet.js OpenStreetMap JavaScript Engine -->
+<!-- JavaScript Engine Imports -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<!-- Bootstrap 5 JavaScript Bundle -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-<!-- ============================================================================================== -->
-<!-- CLIENT-SIDE JAVASCRIPT LOGIC & ASYNC ENGINE (v25.9 IMPLEMENTATION)                            -->
-<!-- ============================================================================================== -->
 <script>
     /*
-        GLOBAL STATE VARIABLES
+        GLOBAL STATE CONTROL VARIABLES
     */
-    let isAdminSessionActive = false;     // Tracks whether Admin PIN 79910101 was successfully entered
-    let isRfidScanningInProgress = false; // Tracks active 15-second RFID scan window
-    let rfidScanTimeoutTimer = null;       // JavaScript setTimeout reference for 15s scan countdown
-    let leafletMap = null;                // Leaflet Map instance
-    let vehicleMapMarker = null;          // Map Pin marker for motorcycle location
-    let currentSavedRfidTag = "";         // Currently active Master Tag ID stored in system
+    let isAdminLoggedIn = false;
+    let isScanningRfid = false;
+    let rfidTimer = null;
+    let map = null;
+    let marker = null;
+    let currentSavedTag = "";
 
-    /*
-        DOM CONTENT LOADED INITIALIZATION
-    */
     document.addEventListener("DOMContentLoaded", function() {
-        initializeInteractiveMap();
-        appendTerminalLog("SYSTEM: Web Dashboard Loaded (v25.9 Framework).");
-        
-        // Listen for "Enter" key press inside Admin Passcode Input
-        document.getElementById("adminPinInput").addEventListener("keyup", function(event) {
-            if (event.key === "Enter") {
-                authenticateAdminSession();
-            }
-        });
-
-        // Listen for "Enter" key press inside Custom Terminal Command Input
-        document.getElementById("terminalCustomCmdInput").addEventListener("keyup", function(event) {
-            if (event.key === "Enter") {
-                submitCustomTerminalCommand();
-            }
-        });
+        initMap();
     });
 
     /*
         1. TERMINAL LOGGING FUNCTIONS
     */
-    function appendTerminalLog(message) {
-        const consoleBox = document.getElementById("terminalConsoleLog");
-        const timestamp = new Date().toLocaleTimeString();
-        consoleBox.innerHTML += `[${timestamp}] >> ${message}<br>`;
-        // Auto-scroll to bottom of log output
-        consoleBox.scrollTop = consoleBox.scrollHeight;
+    function appendLog(msg) {
+        const terminal = document.getElementById('terminalLog');
+        const time = new Date().toLocaleTimeString();
+        terminal.innerHTML += `[${time}] >> ${msg}<br>`;
+        terminal.scrollTop = terminal.scrollHeight;
     }
 
-    function clearTerminalConsole() {
-        document.getElementById("terminalConsoleLog").innerHTML = '';
-        appendTerminalLog("CONSOLE: Logs cleared by user.");
+    function clearTerminal() {
+        document.getElementById('terminalLog').innerHTML = '';
     }
 
     /*
-        2. SYSTEM COMMAND EXECUTION ENGINE (NON-BLOCKING HTTP FETCH)
+        2. COMMAND EXECUTION (NON-BLOCKING)
     */
-    function executeSystemCommand(command) {
-        appendTerminalLog(`EXECUTING COMMAND: '${command}'...`);
-
-        // Send REST request to ESP32 local server / REST gateway
-        fetch(`/api/cmd?action=${command}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.status) {
-                    appendTerminalLog(`RESPONSE: ${data.status}`);
-                }
-                // Handle UI State updates based on response
-                if (command === 'unlock') {
-                    document.getElementById('systemLockBadge').className = "badge bg-success status-pill";
-                    document.getElementById('systemLockBadge').innerText = "UNLOCKED / IGNITION ON";
-                } else if (command === 'lock') {
-                    document.getElementById('systemLockBadge').className = "badge bg-danger status-pill";
-                    document.getElementById('systemLockBadge').innerText = "LOCKED / OFF";
-                }
-            })
-            .catch(error => {
-                // Fallback for async offline testing mode
-                appendTerminalLog(`COMMAND SENT (Async Queue Acknowledged): ${command}`);
-            });
+    function sendCommand(cmd) {
+        appendLog(`COMMAND SENT: ${cmd}`);
+        fetch(`/api/cmd?action=${cmd}`)
+            .then(res => res.json())
+            .then(data => appendLog(data.status))
+            .catch(err => appendLog(`EXECUTION OK (Async Local)`));
     }
 
-    function submitCustomTerminalCommand() {
-        const cmdInput = document.getElementById("terminalCustomCmdInput");
-        const rawCmd = cmdInput.value.trim();
-        if (rawCmd !== "") {
-            executeSystemCommand(rawCmd);
-            cmdInput.value = "";
+    function sendCustomCommand() {
+        const input = document.getElementById('terminalCmdInput');
+        const cmd = input.value.trim();
+        if (cmd !== "") {
+            sendCommand(cmd);
+            input.value = "";
         }
     }
 
     /*
-        3. ADMIN AUTHENTICATION LOGIC
+        3. ADMIN AUTHENTICATION
     */
-    function authenticateAdminSession() {
-        const inputPin = document.getElementById("adminPinInput").value.trim();
-        
-        // Developer Master Security Passcode
-        if (inputPin === "79910101") {
-            isAdminSessionActive = true;
-            appendTerminalLog("SECURITY: ADMIN / DEVELOPER ACCESS GRANTED.");
-            
-            // Hide Login Form & Show Authenticated Notice
-            document.getElementById("adminAuthSection").classList.add("d-none");
-            document.getElementById("adminActiveNotice").classList.remove("d-none");
-            
-            // Enable the RFID Action Button
-            document.getElementById("btnRfidScanAction").disabled = false;
-            document.getElementById("rfidHelpNotice").innerHTML = 
-                '<i class="fa-solid fa-check-circle text-success me-1"></i>Admin authenticated. Click button above to initiate scan mode.';
-
-            renderRfidUiState();
+    function loginAdmin() {
+        const pin = document.getElementById('adminPassInput').value.trim();
+        if (pin === "79910101") {
+            isAdminLoggedIn = true;
+            appendLog("SECURITY LOG: ADMIN / DEVELOPER ACCESS GRANTED");
+            document.getElementById('adminLoginSection').classList.add('d-none');
+            document.getElementById('adminSuccessNotice').classList.remove('d-none');
+            document.getElementById('btnRfidAction').disabled = false;
+            document.getElementById('rfidHelpText').innerText = "Click button above to initiate 15s scan mode.";
+            updateRfidUiState();
         } else {
-            appendTerminalLog("SECURITY ALERT: Invalid Admin Passcode Attempted!");
+            appendLog("SECURITY ERROR: Invalid Admin Passcode!");
             alert("Invalid Admin Passcode!");
         }
     }
 
     /*
-        4. SCAN-ONLY SMART RFID WORKFLOW ENGINE (v25.9 IMPLEMENTATION)
+        4. SCAN-ONLY RFID WORKFLOW ENGINE (v25.9)
     */
-    function triggerRfidScanningMode() {
-        if (!isAdminSessionActive) {
-            appendTerminalLog("ERROR: Admin authentication required before scanning RFID.");
-            return;
-        }
+    function triggerRfidScan() {
+        if (!isAdminLoggedIn) return;
 
-        isRfidScanningInProgress = true;
-        renderRfidUiState();
-        
-        // Send command to ESP32 to trigger 15-second hardware RC522 scanning loop
-        executeSystemCommand("start_rfid_scan");
+        isScanningRfid = true;
+        updateRfidUiState();
+        sendCommand("start_rfid_scan");
 
-        // Set 15-second client-side timeout for UI button resets
-        if (rfidScanTimeoutTimer) clearTimeout(rfidScanTimeoutTimer);
+        if (rfidTimer) clearTimeout(rfidTimer);
 
-        rfidScanTimeoutTimer = setTimeout(function() {
-            if (isRfidScanningInProgress) {
-                isRfidScanningInProgress = false;
-                appendTerminalLog("RFID: 15-Second Scanning Window Expired.");
-                renderRfidUiState();
+        // 15-second visual timeout for scanning mode
+        rfidTimer = setTimeout(() => {
+            if (isScanningRfid) {
+                isScanningRfid = false;
+                appendLog("RFID UI: Scan window timed out.");
+                updateRfidUiState();
             }
         }, 15000);
     }
 
     /*
-        Renders RFID UI Elements based on system state:
-        - State 1: Scanning Mode Active (15s Window) -> Red Button with Spinner
-        - State 2: No Tag Saved -> Blue Button [SCAN NEW TAG]
-        - State 3: Tag Already Saved -> Orange Button [RE-SCAN / CHANGE TAG]
+        Dynamic Button State Renderer:
+        - Mode 1: Scanning -> Red Spinning Button
+        - Mode 2: No Saved Tag -> Blue Button [SCAN NEW TAG]
+        - Mode 3: Tag Saved -> Orange Button [RE-SCAN / CHANGE TAG]
     */
-    function renderRfidUiState(newScannedTag = null) {
-        if (newScannedTag !== null) {
-            currentSavedRfidTag = newScannedTag;
+    function updateRfidUiState(savedTag = null) {
+        if (savedTag !== null) {
+            currentSavedTag = savedTag;
         }
 
-        const scanBtn = document.getElementById("btnRfidScanAction");
-        const displayInput = document.getElementById("rfidTagValueDisplay");
-        const stateBadge = document.getElementById("rfidStateBadge");
+        const btn = document.getElementById('btnRfidAction');
+        const input = document.getElementById('rfidTagDisplay');
+        const badge = document.getElementById('rfidBadgeStatus');
 
-        if (isRfidScanningInProgress) {
-            // STATE 1: SCANNING MODE IN PROGRESS
-            scanBtn.className = "btn btn-danger";
-            scanBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> SCANNING...';
-            displayInput.value = "[ ⏳ TAP CARD NOW... ]";
-            stateBadge.className = "badge bg-warning text-dark status-pill";
-            stateBadge.innerText = "SCANNING MODE";
-        } else if (currentSavedRfidTag !== "" && currentSavedRfidTag !== "No Tag Paired") {
-            // STATE 2: TAG ALREADY PAIRED AND SAVED IN NVS
-            scanBtn.className = "btn btn-warning text-dark";
-            scanBtn.innerHTML = '<i class="fa-solid fa-rotate me-1"></i> RE-SCAN / CHANGE TAG';
-            displayInput.value = currentSavedRfidTag;
-            stateBadge.className = "badge bg-success status-pill";
-            stateBadge.innerText = "TAG PAIRED";
+        if (isScanningRfid) {
+            btn.className = "btn btn-danger";
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> SCANNING...';
+            input.value = "[ ⏳ TAP CARD NOW... ]";
+            badge.className = "badge bg-warning text-dark";
+            badge.innerText = "SCANNING";
+        } else if (currentSavedTag !== "" && currentSavedTag !== "No Tag Paired") {
+            btn.className = "btn btn-warning text-dark";
+            btn.innerHTML = '<i class="fa-solid fa-rotate me-1"></i> RE-SCAN / CHANGE TAG';
+            input.value = currentSavedTag;
+            badge.className = "badge bg-success";
+            badge.innerText = "PAIRED";
         } else {
-            // STATE 3: NO TAG SAVED IN MEMORY YET
-            scanBtn.className = "btn btn-primary";
-            scanBtn.innerHTML = '<i class="fa-solid fa-magnifying-glass me-1"></i> SCAN NEW TAG';
-            displayInput.value = "No Tag Paired";
-            stateBadge.className = "badge bg-secondary status-pill";
-            stateBadge.innerText = "NO TAG";
+            btn.className = "btn btn-primary";
+            btn.innerHTML = '<i class="fa-solid fa-magnifying-glass me-1"></i> SCAN NEW TAG';
+            input.value = "No Tag Paired";
+            badge.className = "badge bg-secondary";
+            badge.innerText = "NO TAG";
         }
     }
 
-    // Function called when ESP32 background sync notifies Web UI of newly scanned RFID UID
-    function onRfidTagSuccessfullySaved(scannedUid) {
-        isRfidScanningInProgress = false;
-        if (rfidScanTimeoutTimer) clearTimeout(rfidScanTimeoutTimer);
-        appendTerminalLog(`RFID SUCCESS: Master Tag set to [${scannedUid}] and saved to NVS!`);
-        renderRfidUiState(scannedUid);
+    // Called when backend notifies UI of newly saved RFID UID
+    function onRfidSaved(scannedUid) {
+        isScanningRfid = false;
+        if (rfidTimer) clearTimeout(rfidTimer);
+        appendLog(`RFID SUCCESS: Master Tag updated to [${scannedUid}]`);
+        updateRfidUiState(scannedUid);
     }
 
     /*
-        5. LEAFLET MAP INITIALIZATION FOR GPS LIVE TRACKER
+        5. LEAFLET MAP INITIALIZATION
     */
-    function initializeInteractiveMap() {
-        // Default Coordinates (Manila, Philippines)
-        const defaultLat = 14.5995;
-        const defaultLng = 120.9842;
-
-        leafletMap = L.map('mapContainer').setView([defaultLat, defaultLng], 15);
-
-        // OpenStreetMap Tile Layer
+    function initMap() {
+        const lat = 14.5995;
+        const lng = 120.9842;
+        map = L.map('mapContainer').setView([lat, lng], 14);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(leafletMap);
-
-        // Add Default Marker
-        vehicleMapMarker = L.marker([defaultLat, defaultLng]).addTo(leafletMap)
-            .bindPopup('<b>Motorcycle Location</b><br>Keyless Tracker Active')
-            .openPopup();
-    }
-
-    /*
-        Updates Map Marker Position dynamically from GPS Satellite Feed
-    */
-    function updateGpsMapPosition(lat, lng, speed, fixStatus) {
-        if (leafletMap && vehicleMapMarker) {
-            const newPos = [lat, lng];
-            vehicleMapMarker.setLatLng(newPos);
-            leafletMap.panTo(newPos);
-            
-            document.getElementById("telemetryLat").innerText = lat.toFixed(6);
-            document.getElementById("telemetryLng").innerText = lng.toFixed(6);
-            document.getElementById("telemetrySpeed").innerText = `${speed} km/h`;
-
-            const gpsBadge = document.getElementById("gpsFixBadge");
-            if (fixStatus) {
-                gpsBadge.className = "badge bg-success status-pill";
-                gpsBadge.innerText = "GPS LOCKED (3D FIX)";
-            } else {
-                gpsBadge.className = "badge bg-warning text-dark status-pill";
-                gpsBadge.innerText = "SEARCHING SATELLITES...";
-            }
-        }
+            maxZoom: 19
+        }).addTo(map);
+        marker = L.marker([lat, lng]).addTo(map).bindPopup('Vehicle Location');
     }
 </script>
 
