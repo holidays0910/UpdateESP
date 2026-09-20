@@ -52,16 +52,16 @@
     .btn-custom { background: #ab47bc; color: #fff; }
     .btn-save { padding: 8px; font-size: 12px; background: #0288d1; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
     
-    /* Terminal Monitor Box (Kept Dark for Console Vibe) */
+    /* Terminal Monitor Box */
     #log { width: 90%; max-width: 500px; height: 220px; background: #000; color: #00ff00; border: 1px solid var(--border-color); margin: 12px auto; padding: 10px; text-align: left; font-family: monospace; overflow-y: scroll; white-space: pre-wrap; font-size: 12px; box-sizing: border-box; }
 
-    /* Map Container Fix */
+    /* Map Container */
     #map { width: 100%; height: 240px; border-radius: 8px; margin-top: 10px; border: 1px solid var(--border-color); position: relative; z-index: 1; }
     
     /* Custom Motorcycle Marker */
     .vehicle-marker { font-size: 32px; filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.5)); text-align: center; line-height: 32px; margin-top: -16px; margin-left: -16px; }
 
-    /* Modal Popup Layering Fix */
+    /* Modal Popup */
     .modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; }
     .modal-content { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; width: 85%; max-width: 350px; text-align: center; }
 
@@ -77,7 +77,6 @@
     .form-row { display: flex; align-items: center; justify-content: space-between; margin: 8px 0; }
     .form-row input[type=text], .form-row input[type=password], select, input[type=date] { width: 60%; margin: 0; padding: 8px; font-size: 13px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-main); }
     
-    /* Command Input Specifics */
     #cmdInput { width:60%; max-width:280px; padding:10px; margin:4px; font-size:14px; border-radius:5px; border:1px solid var(--border-color); background:var(--input-bg); color:var(--text-main); }
 
     .pw-container { position: relative; display: inline-block; width: 60%; }
@@ -126,7 +125,13 @@
     <b style="color:#00e676;">📡 LIVE GPS TRACKER (REAL-TIME)</b><br>
     <div id="map"></div>
     <p id="gpsCoordsText" style="font-size:12px; color:var(--text-muted); margin-top:8px; text-align:center;">Waiting for Satellite Telemetry...</p>
-    <button class="btn btn-custom" style="background:#0288d1; width:85%; margin:8px auto 0 auto;" onclick="openGoogleMapsDirections()">🗺️ OPEN GMAP LOCATION</button>
+    
+    <!-- LIVE VIEWER COUNT (Visible to Admin only) -->
+    <div id="viewerCountDiv" style="display:none; text-align:center; margin-top:8px; font-weight:bold; color:#29b6f6; background:var(--row-bg); padding:6px; border-radius:5px; font-size:13px; border:1px solid var(--border-color);">
+      👁️ Active Viewers: <span id="viewerCount">1</span>
+    </div>
+
+    <button class="btn btn-custom" style="background:#0288d1; width:85%; margin:10px auto 0 auto;" onclick="openGoogleMapsDirections()">🗺️ OPEN GMAP LOCATION</button>
   </div>
 
   <!-- Historical Route & Analytics Card -->
@@ -272,11 +277,14 @@
     </div>
   </div>
 
-  <p style="color:var(--text-muted); font-size:11px; margin-top:25px; text-align:center;">Developed by: RENZ ALDRIN GOMEZ<br>Web UI Version: v25.8 (Custom UI Update)</p>
+  <p style="color:var(--text-muted); font-size:11px; margin-top:25px; text-align:center;">Developed by: RENZ ALDRIN GOMEZ<br>Web UI Version: v26.8 (Dark/Light + Viewers)</p>
 
   <script>
     const FIREBASE_HOST = "keylesstrackerrenz-default-rtdb.asia-southeast1.firebasedatabase.app";
     let adminPassword = "79910101"; 
+
+    // Generate Unique Viewer ID for Presence System
+    const myViewerId = "v_" + Math.random().toString(36).substr(2, 9);
 
     let activePin = "";
     let isAdmin = false;
@@ -308,7 +316,7 @@
     }
     initMap();
 
-    // Time Converter Function (Minutes to Hours & Mins)
+    // Smart Time Converter Function (Minutes to Hours & Mins)
     function formatDuration(minutes) {
       let num = parseInt(minutes);
       if (isNaN(num)) return "0m";
@@ -354,11 +362,14 @@
           badge.innerText = "👨‍💻 ADMIN PROFILE";
           document.getElementById('adminSlidersDiv').style.display = "block";
           document.getElementById('adminConfigCardDiv').style.display = "block";
+          document.getElementById('viewerCountDiv').style.display = "block"; // Show viewer count for Admin
+          fetchViewers(); // Immediate fetch on login
         } else {
           badge.className = "profile-badge badge-user";
           badge.innerText = "👤 OWNER PROFILE";
           document.getElementById('adminSlidersDiv').style.display = "none";
           document.getElementById('adminConfigCardDiv').style.display = "none";
+          document.getElementById('viewerCountDiv').style.display = "none";
         }
 
         document.getElementById('mainControlsDiv').style.display = "block";
@@ -389,6 +400,7 @@
       document.getElementById('adminConfigCardDiv').style.display = "none";
       document.getElementById('wifiCardDiv').style.display = "none";
       document.getElementById('historyCardDiv').style.display = "none";
+      document.getElementById('viewerCountDiv').style.display = "none"; // Hide viewer count
     }
 
     function sendCloudCmd(commandStr) {
@@ -522,7 +534,8 @@
           document.getElementById('statDistance').innerText = totalDist.toFixed(1) + " km";
           document.getElementById('statTopSpeed').innerText = topSpd.toFixed(0) + " km/h";
           document.getElementById('statAvgSpeed').innerText = avgSpd.toFixed(0) + " km/h";
-          // Applied Engine Time Format Fix
+          
+          // FORMATTED ENGINE TIME
           document.getElementById('statEngineTime').innerText = formatDuration(entriesCount);
           
           document.getElementById('routeDateLabel').innerText = "History for: " + selectedDate;
@@ -531,6 +544,47 @@
       }).catch(err => console.error("History fetch error:", err));
     }
 
+    // ==========================================
+    // PRESENCE SYSTEM (LIVE VIEWER COUNT)
+    // ==========================================
+    function pingPresence() {
+      fetch(`https://${FIREBASE_HOST}/presence/${myViewerId}.json`, {
+        method: 'PUT',
+        body: JSON.stringify({ ts: Date.now() })
+      }).catch(e => {});
+    }
+    
+    function fetchViewers() {
+      if (!isAdmin) return; // Only admin can count and clean
+      fetch(`https://${FIREBASE_HOST}/presence.json`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data) return;
+        let now = Date.now();
+        let activeCount = 0;
+        
+        for (let key in data) {
+          if (now - data[key].ts < 25000) { // Considered active if pinged in last 25s
+            activeCount++;
+          } else {
+            // Auto-Clean old viewers
+            fetch(`https://${FIREBASE_HOST}/presence/${key}.json`, { method: 'DELETE' }).catch(e => {});
+          }
+        }
+        document.getElementById('viewerCount').innerText = activeCount;
+      }).catch(e => {});
+    }
+
+    // Ping every 10 seconds
+    setInterval(pingPresence, 10000);
+    pingPresence();
+
+    // Admin checks viewer count every 10 seconds
+    setInterval(fetchViewers, 10000);
+
+    // ==========================================
+    // MAIN TELEMETRY SYNC
+    // ==========================================
     function syncTelemetry() {
       fetch(`https://${FIREBASE_HOST}/location.json?t=` + Date.now()).then(r => r.json()).then(data => {
         if (data && data.lat && data.lon) {
