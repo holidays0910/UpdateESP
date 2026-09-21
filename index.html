@@ -144,7 +144,7 @@
         👁️ Active Viewers: <span id="viewerCount">0</span>
       </div>
       <div id="viewerList" style="margin-top:8px;">
-        <!-- Viewer items with role icons will be injected here -->
+        <!-- Viewer items will be injected here -->
       </div>
     </div>
 
@@ -200,7 +200,6 @@
     <span style="font-size:11px; color:var(--text-muted);">🆔 ESP32 Board MAC ID (License):</span>
     <div class="form-row"><input type="text" id="cfg_mac_id" readonly placeholder="Fetching MAC..."><button class="btn-save" style="background:#f57c00;" onclick="copyMacId()">COPY ID</button></div>
 
-    <!-- OWNER DIRECT PIN FIELD (RESTORED FOR ADMIN VIEW/EDIT) -->
     <span style="font-size:11px; color:var(--text-muted);">🔑 Owner Direct PIN (User):</span>
     <div class="form-row">
       <div class="pw-container">
@@ -304,7 +303,7 @@
     </div>
   </div>
 
-  <p style="color:var(--text-muted); font-size:11px; margin-top:25px; text-align:center;">Developed by: RENZ ALDRIN GOMEZ<br>Web UI Version: v26.8 (Full Restored Baseline)</p>
+  <p style="color:var(--text-muted); font-size:11px; margin-top:25px; text-align:center;">Developed by: RENZ ALDRIN GOMEZ<br>Live Web UI Version: v27.2 (Live PIN Sync)</p>
 
   <script>
     const FIREBASE_HOST = "keylesstrackerrenz-default-rtdb.asia-southeast1.firebasedatabase.app";
@@ -651,7 +650,6 @@
             let vLon = data[key].lon;
             let mapLink = `https://www.google.com/maps/search/?api=1&query=${vLat},${vLon}`;
             
-            // Determine Visual Logo and Name per Role
             let roleLabel = "";
             if (vRole === "ADMIN") {
               roleLabel = "👨‍💻 Admin";
@@ -667,7 +665,6 @@
                 <a href="${mapLink}" target="_blank" style="background:#0288d1; color:#fff; padding:6px 12px; text-decoration:none; border-radius:4px; font-weight:bold;">📍 MAP</a>
             </div>`;
           } else {
-            // Auto-clean inactive sessions
             fetch(`https://${FIREBASE_HOST}/presence/${key}.json`, { method: 'DELETE' }).catch(e => {});
           }
         }
@@ -697,6 +694,19 @@
           }
           
           document.getElementById('cloudStatus').innerText = `(BAT: ${data.battery || '--'} | UPTIME: ${data.uptime || '--'})`;
+
+          // AUTO-FILL DIRECT PIN FROM NVS DB (Without interrupting typing)
+          if (data.direct_pin !== undefined) {
+             let pinField = document.getElementById('cfg_owner_pin');
+             if(document.activeElement !== pinField) {
+                 pinField.value = data.direct_pin;
+             }
+          } else {
+             let pinField = document.getElementById('cfg_owner_pin');
+             if(document.activeElement !== pinField && pinField.value === "") {
+                 pinField.value = "12345678"; // Fallback kung wala pa
+             }
+          }
 
           if (data.alarm !== undefined) document.getElementById('tog_alarm').checked = data.alarm;
           if (data.intro !== undefined) document.getElementById('tog_intro').checked = data.intro;
